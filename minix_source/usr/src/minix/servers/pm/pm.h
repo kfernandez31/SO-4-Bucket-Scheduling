@@ -3,9 +3,6 @@
  */
 #define _SYSTEM		1	/* tell headers that this is the kernel */
 
-#define BUCKET_Q 8 
-#define NR_BUCKETS 10
-
 /* The following are so basic, all the *.c files get them automatically. */
 #include <minix/config.h>	/* MUST be first */
 #include <sys/types.h>

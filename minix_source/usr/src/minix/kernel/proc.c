@@ -1729,6 +1729,10 @@ static struct proc * pick_proc(void)
    */
   rdy_head = get_cpulocal_var(run_q_head);
   for (q=0; q < NR_SCHED_QUEUES; q++) {	
+	// check if it's the queue of user processes
+	if (q == BUCKET_Q) {
+		//TODO...
+	}
 	if(!(rp = rdy_head[q])) {
 		TRACE(VF_PICKPROC, printf("cpu %d queue %d empty\n", cpuid, q););
 		continue;

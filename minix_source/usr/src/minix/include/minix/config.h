@@ -73,6 +73,9 @@
 #define USER_DEFAULT_CPU	-1 /* use the default cpu or do not change the
 				      current one */
 
+#define BUCKET_Q    8 
+#define NR_BUCKETS  10
+
 /*===========================================================================*
  *	There are no user-settable parameters after this line		     *
  *===========================================================================*/
