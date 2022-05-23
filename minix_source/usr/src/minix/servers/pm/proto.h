@@ -51,6 +51,8 @@ int do_getrusage(void);
 void sched_init(void);
 int sched_start_user(endpoint_t ep, struct mproc *rmp);
 int sched_nice(struct mproc *rmp, int nice);
+/* so_2022 */
+int sched_set_bucket(struct mproc *rmp, int bucket_nr);
 
 /* profile.c */
 int do_sprofile(void);
@@ -89,7 +91,3 @@ struct mproc *find_proc(pid_t lpid);
 int nice_to_priority(int nice, unsigned *new_q);
 int pm_isokendpt(int ep, int *proc);
 void tell_vfs(struct mproc *rmp, message *m_ptr);
-
-/* do_set_bucket.c */
-/* so_2022 */
-int do_set_bucket(void);

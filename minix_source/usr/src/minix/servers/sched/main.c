@@ -18,6 +18,7 @@ struct machine machine;		/* machine info */
 /*===========================================================================*
  *				main					     *
  *===========================================================================*/
+/* so_2022 */
 int main(void)
 {
 	/* Main routine of the scheduler. */
@@ -69,6 +70,9 @@ int main(void)
 			break;
 		case SCHEDULING_SET_NICE:
 			result = do_nice(&m_in);
+			break;
+		case SCHEDULING_SET_BUCKET:
+			result = do_set_bucket(&m_in);
 			break;
 		case SCHEDULING_NO_QUANTUM:
 			/* This message was sent from the kernel, don't reply */

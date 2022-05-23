@@ -4,7 +4,7 @@
 .PATH: ${ARCHDIR}/misc ${.CURDIR}/misc
 
 # constructor
-SRCS+=	initfini.c set_bucket.c
+SRCS+=	initfini.c
 
 # for -fstack-protector
 SRCS+=	stack_protector.c

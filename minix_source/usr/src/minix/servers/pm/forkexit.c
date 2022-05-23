@@ -41,7 +41,6 @@ static void cleanup(register struct mproc *rmp);
 /*===========================================================================*
  *				do_fork					     *
  *===========================================================================*/
- /* so_2022 */
 int do_fork()
 {
 /* The process pointed to by 'mp' has forked.  Create a child process. */
@@ -127,8 +126,6 @@ int do_fork()
   /* Tell the tracer, if any, about the new child */
   if (rmc->mp_tracer != NO_TRACER)
 	sig_proc(rmc, SIGSTOP, TRUE /*trace*/, FALSE /* ksig */);
-
-  rmc->mp_bucket = mproc[who_p]->mp_bucket; /* inherit parent's bucket */
 
   /* Do not reply until VFS is ready to process the fork
   * request

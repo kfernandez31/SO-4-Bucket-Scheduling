@@ -66,7 +66,6 @@ EXTERN struct mproc {
 
   /* User space scheduling */
   endpoint_t mp_scheduler;	/* scheduler endpoint id */
-  int mp_bucket; /* bucket used in scheduling */
 
   char mp_name[PROC_NAME_LEN];	/* process name */
 

@@ -411,8 +411,5 @@ extern	 int optreset;		/* getopt(3) external variable */
 extern	 char *suboptarg;	/* getsubopt(3) external variable */
 #endif
 
-/* so_2022 */
-int set_bucket(int);
-
 __END_DECLS
 #endif /* !_UNISTD_H_ */

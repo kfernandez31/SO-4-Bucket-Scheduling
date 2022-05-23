@@ -110,3 +110,30 @@ int sched_nice(struct mproc *rmp, int nice)
 
 	return (OK);
 }
+
+int sched_set_bucket(struct mproc *rmp, int bucket_nr)
+{
+    message m; /* message to be sent to sched */
+	
+    /* check if bucket_nr is legal */
+    if (bucket_nr < 0 || NR_BUCKETS - 1 < bucket_nr) {
+        return (EINVAL);
+    }
+
+    /* check if the process is scheduled directly by the kernel */
+    //TODO: pick one of these:
+    // if (proc_data->mp_scheduler == KERNEL || proc_data->mp_scheduler == NONE) {
+    //     return EPERM;
+    // }  
+    if (proc_data->mp_scheduler != SCHED_PROC_NR) {
+        return (EPERM);
+    }
+
+    m.m_pm_sched_scheduling_set_bucket.endpoint	= rmp->mp_endpoint;
+	m.m_pm_sched_scheduling_set_bucket.bucket	= bucket_nr;
+	if ((rv = _taskcall(rmp->mp_scheduler, SCHEDULING_SET_BUCKET, &m))) {
+		return rv;
+	}
+
+	return (OK);
+}

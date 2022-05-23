@@ -140,6 +140,7 @@ int do_stop_scheduling(message *m_ptr)
 /*===========================================================================*
  *				do_start_scheduling			     *
  *===========================================================================*/
+ /* so_2022 */
 int do_start_scheduling(message *m_ptr)
 {
 	register struct schedproc *rmp;
@@ -200,15 +201,16 @@ int do_start_scheduling(message *m_ptr)
 		break;
 		
 	case SCHEDULING_INHERIT:
-		/* Inherit current priority and time slice from parent. Since there
-		 * is currently only one scheduler scheduling the whole system, this
-		 * value is local and we assert that the parent endpoint is valid */
+		/* Inherit current priority, time slice and bucket from parent. 
+		 * Since thereis currently only one scheduler scheduling the whole system, 
+		 * this value is local and we assert that the parent endpoint is valid */
 		if ((rv = sched_isokendpt(m_ptr->m_lsys_sched_scheduling_start.parent,
 				&parent_nr_n)) != OK)
 			return rv;
 
 		rmp->priority = schedproc[parent_nr_n].priority;
 		rmp->time_slice = schedproc[parent_nr_n].time_slice;
+		rmp->bucket = schedproc[parent_nr_n].bucket;
 		break;
 		
 	default: 
@@ -296,6 +298,46 @@ int do_nice(message *m_ptr)
 
 	/* `nice` shouldn't affect user processes at all */
 	return 0;
+}
+
+ /* so_2022 */
+int do_set_bucket(message *m_ptr)
+{
+	struct schedproc *rmp;
+	int rv;
+	int proc_nr_n;
+	unsigned new_bucket, old_bucket;
+
+	/* check who can send you requests */
+	if (!accept_message(m_ptr))
+		return EPERM;
+
+	if (sched_isokendpt(m_ptr->m_pm_sched_scheduling_set_bucket.endpoint, &proc_nr_n) != OK) {
+		printf("SCHED: WARNING: got an invalid endpoint in OoQ msg "
+		"%d\n", m_ptr->m_pm_sched_scheduling_set_bucket.endpoint);
+		return EBADEPT;
+	}
+
+	rmp = &schedproc[proc_nr_n];
+	new_bucket = m_ptr->m_pm_sched_scheduling_set_bucket.bucket;
+	/* this should have been already checked by pm, but a little more caution won't hurt */
+	if (new_bucket >= NR_BUCKETS) {
+		return EINVAL;
+	}
+
+	/* Store old values, in case we need to roll back the changes */
+	old_bucket = rmp->bucket;
+
+	/* Update the proc entry and reschedule the process */
+	rmp->bucket = new_bucket;
+
+	if ((rv = schedule_process_local(rmp)) != OK) {
+		/* Something went wrong when rescheduling the process, roll
+		 * back the changes to proc struct */
+		rmp->bucket = old_bucket;
+	}
+
+	return rv;
 }
 
 /*===========================================================================*
