@@ -320,10 +320,6 @@ int do_set_bucket(message *m_ptr)
 
 	rmp = &schedproc[proc_nr_n];
 	new_bucket = m_ptr->m_pm_sched_scheduling_set_bucket.bucket;
-	/* this should have been already checked by pm, but a little more caution won't hurt */
-	if (new_bucket >= NR_BUCKETS) {
-		return EINVAL;
-	}
 
 	/* Store old values, in case we need to roll back the changes */
 	old_bucket = rmp->bucket;
@@ -343,6 +339,7 @@ int do_set_bucket(message *m_ptr)
 /*===========================================================================*
  *				schedule_process			     *
  *===========================================================================*/
+ /* so_2022 */
 static int schedule_process(struct schedproc * rmp, unsigned flags)
 {
 	int err;
@@ -351,7 +348,7 @@ static int schedule_process(struct schedproc * rmp, unsigned flags)
 	pick_cpu(rmp);
 
 	if (flags & SCHEDULE_CHANGE_PRIO)
-		new_prio = rmp->priority;
+		new_prio = (rmp->priority < BUCKET_Q)? rmp->priority : BUCKET_Q + rmp->bucket;
 	else
 		new_prio = -1;
 

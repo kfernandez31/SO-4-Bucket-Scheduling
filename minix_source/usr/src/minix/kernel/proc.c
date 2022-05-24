@@ -1547,13 +1547,13 @@ void enqueue(
 
   /* Now add the process to the queue. */
   if (!rdy_head[q]) {		/* add to empty queue */
-      rdy_head[q] = rdy_tail[q] = rp; 		/* create a new queue */
-      rp->p_nextready = NULL;		/* mark new end */
+	rdy_head[q] = rdy_tail[q] = rp; 		/* create a new queue */
+	rp->p_nextready = NULL;		/* mark new end */
   } 
   else {					/* add to tail of queue */
-      rdy_tail[q]->p_nextready = rp;		/* chain tail of queue */	
-      rdy_tail[q] = rp;				/* set new queue tail */
-      rp->p_nextready = NULL;		/* mark new end */
+	rdy_tail[q]->p_nextready = rp;		/* chain tail of queue */	
+	rdy_tail[q] = rp;				/* set new queue tail */
+	rp->p_nextready = NULL;		/* mark new end */
   }
 
   if (cpuid == rp->p_cpu) {
@@ -1711,8 +1711,10 @@ void dequeue(struct proc *rp)
 /*===========================================================================*
  *				pick_proc				     * 
  *===========================================================================*/
+/* so_2022 */
 static struct proc * pick_proc(void)
 {
+  static int prev_bucket = 0;
 /* Decide who to run now.  A new process is selected an returned.
  * When a billable process is selected, record it in 'bill_ptr', so that the 
  * clock task can tell who to bill for system time.
@@ -1729,18 +1731,20 @@ static struct proc * pick_proc(void)
    */
   rdy_head = get_cpulocal_var(run_q_head);
   for (q=0; q < NR_SCHED_QUEUES; q++) {	
-	// check if it's the queue of user processes
-	if (q == BUCKET_Q) {
-		//TODO...
-	}
-	if(!(rp = rdy_head[q])) {
-		TRACE(VF_PICKPROC, printf("cpu %d queue %d empty\n", cpuid, q););
-		continue;
-	}
-	assert(proc_is_runnable(rp));
-	if (priv(rp)->s_flags & BILLABLE)	 	
-		get_cpulocal_var(bill_ptr) = rp; /* bill for system time */
-	return rp;
+    int bucket = prev_bucket + 1 + q - BUCKET_Q;
+    int queue = (q >= BUCKET_Q && q < NR_SCHED_QUEUES - 1)? ((bucket % NR_BUCKETS) + BUCKET_Q) : q;
+    if(!(rp = rdy_head[queue])) {
+      TRACE(VF_PICKPROC, printf("cpu %d queue %d empty\n", cpuid, q););
+      continue;
+    }
+    assert(proc_is_runnable(rp));
+    if (priv(rp)->s_flags & BILLABLE)	 	
+      get_cpulocal_var(bill_ptr) = rp; /* bill for system time */
+    /* if this was a user process, rememver its bucket */
+    if (q != queue) {
+      prev_bucket = bucket;
+    }
+    return rp;
   }
   return NULL;
 }

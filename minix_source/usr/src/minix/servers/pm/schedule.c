@@ -122,10 +122,10 @@ int sched_set_bucket(struct mproc *rmp, int bucket_nr)
 
     /* check if the process is scheduled directly by the kernel */
     //TODO: pick one of these:
-    // if (proc_data->mp_scheduler == KERNEL || proc_data->mp_scheduler == NONE) {
-    //     return EPERM;
-    // }  
-    if (proc_data->mp_scheduler != SCHED_PROC_NR) {
+    if (rmp->mp_scheduler == KERNEL || rmp->mp_scheduler == NONE) {
+        return (EPERM);
+    }  
+    if (rmp->mp_scheduler != SCHED_PROC_NR) {
         return (EPERM);
     }
 
@@ -136,4 +136,19 @@ int sched_set_bucket(struct mproc *rmp, int bucket_nr)
 	}
 
 	return (OK);
+}
+
+int do_set_bucket(void)
+{
+	int arg_who = m_in.m1_i1;
+    int arg_bucket_nr = m_in.m1_i2;
+	struct mproc *rmp;
+
+	if (arg_who == 0)
+		rmp = mp;
+	else 
+		if ((rmp = find_proc(arg_who)) == NULL)
+			return(ESRCH);
+
+    return sched_set_bucket(rmp, bucket_nr);
 }
