@@ -1,0 +1,386 @@
+diff -rupNEZbB minix_original/usr/src/lib/libc/misc/Makefile.inc minix_source/usr/src/lib/libc/misc/Makefile.inc
+--- minix_original/usr/src/lib/libc/misc/Makefile.inc	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/lib/libc/misc/Makefile.inc	2022-05-27 16:08:02.919375549 +0200
+@@ -7,4 +7,4 @@
+ SRCS+=	initfini.c
+ 
+ # for -fstack-protector
+-SRCS+=	stack_protector.c
++SRCS+=	stack_protector.c set_bucket.c
+diff -rupNEZbB minix_original/usr/src/lib/libc/misc/set_bucket.c minix_source/usr/src/lib/libc/misc/set_bucket.c
+--- minix_original/usr/src/lib/libc/misc/set_bucket.c	1970-01-01 01:00:00.000000000 +0100
++++ minix_source/usr/src/lib/libc/misc/set_bucket.c	2022-05-27 16:39:21.435251572 +0200
+@@ -0,0 +1,11 @@
++#include <unistd.h>
++#include <lib.h>
++
++int set_bucket(int bucket_nr)
++{   
++    message m;
++    m.m1_i1 = getpid();
++    m.m1_i2 = bucket_nr;
++
++    return _syscall(PM_BASE, PM_SET_BUCKET, &m);
++}
+diff -rupNEZbB minix_original/usr/src/minix/include/minix/callnr.h minix_source/usr/src/minix/include/minix/callnr.h
+--- minix_original/usr/src/minix/include/minix/callnr.h	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/minix/include/minix/callnr.h	2022-05-24 12:53:40.332740666 +0200
+@@ -58,8 +58,9 @@
+ #define PM_GETEPINFO		(PM_BASE + 45)
+ #define PM_GETPROCNR		(PM_BASE + 46)
+ #define PM_GETSYSINFO		(PM_BASE + 47)
++#define PM_SET_BUCKET       (PM_BASE  + 48)
+ 
+-#define NR_PM_CALLS		48	/* highest number from base plus one */
++#define NR_PM_CALLS		49	/* highest number from base plus one */
+ 
+ /*===========================================================================*
+  *				Calls to VFS				     *
+diff -rupNEZbB minix_original/usr/src/minix/include/minix/com.h minix_source/usr/src/minix/include/minix/com.h
+--- minix_original/usr/src/minix/include/minix/com.h	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/minix/include/minix/com.h	2022-05-23 12:40:59.910465966 +0200
+@@ -763,6 +763,7 @@
+ #define SCHEDULING_STOP		(SCHEDULING_BASE+3)
+ #define SCHEDULING_SET_NICE	(SCHEDULING_BASE+4)
+ #define SCHEDULING_INHERIT	(SCHEDULING_BASE+5)
++#define SCHEDULING_SET_BUCKET	(SCHEDULING_BASE+6)
+ 
+ /*===========================================================================*
+  *              Messages for USB                                             *
+diff -rupNEZbB minix_original/usr/src/minix/include/minix/config.h minix_source/usr/src/minix/include/minix/config.h
+--- minix_original/usr/src/minix/include/minix/config.h	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/minix/include/minix/config.h	2022-05-27 16:28:05.326605191 +0200
+@@ -59,7 +59,9 @@
+ /* Scheduling priorities. Values must start at zero (highest
+  * priority) and increment.
+  */
+-#define NR_SCHED_QUEUES   16	/* MUST equal minimum priority + 1 */
++#define BUCKET_Q    8 
++#define NR_BUCKETS  10
++#define NR_SCHED_QUEUES   (1 + BUCKET_Q + NR_BUCKETS)	/* MUST equal minimum priority + 1 */
+ #define TASK_Q		   0	/* highest, used for kernel tasks */
+ #define MAX_USER_Q  	   0    /* highest priority for user processes */   
+ #define USER_Q  	  ((MIN_USER_Q - MAX_USER_Q) / 2 + MAX_USER_Q) /* default
+diff -rupNEZbB minix_original/usr/src/minix/include/minix/ipc.h minix_source/usr/src/minix/include/minix/ipc.h
+--- minix_original/usr/src/minix/include/minix/ipc.h	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/minix/include/minix/ipc.h	2022-05-27 15:55:02.002731795 +0200
+@@ -1588,6 +1588,14 @@ typedef struct {
+ _ASSERT_MSG_SIZE(mess_pm_sched_scheduling_set_nice);
+ 
+ typedef struct {
++	endpoint_t endpoint;
++	int bucket;
++
++	uint8_t padding[48];
++} mess_pm_sched_scheduling_set_bucket;
++_ASSERT_MSG_SIZE(mess_pm_sched_scheduling_set_bucket);
++
++typedef struct {
+ 	int status;
+ 
+ 	uint8_t padding[52];
+@@ -2208,6 +2216,7 @@ typedef struct {
+ 		mess_pm_lsys_getprocnr	m_pm_lsys_getprocnr;
+ 		mess_pm_lsys_sigs_signal m_pm_lsys_sigs_signal;
+ 		mess_pm_sched_scheduling_set_nice m_pm_sched_scheduling_set_nice;
++		mess_pm_sched_scheduling_set_bucket m_pm_sched_scheduling_set_bucket;
+ 		mess_readclock_lc_rtcdev m_readclock_lc_rtcdev;
+ 		mess_rs_init		m_rs_init;
+ 		mess_rs_pm_exec_restart	m_rs_pm_exec_restart;
+diff -rupNEZbB minix_original/usr/src/minix/kernel/proc.c minix_source/usr/src/minix/kernel/proc.c
+--- minix_original/usr/src/minix/kernel/proc.c	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/minix/kernel/proc.c	2022-05-27 16:41:30.159094929 +0200
+@@ -59,7 +59,7 @@ static int deadlock(int function, regist
+ 	endpoint_t src_dst_e);
+ static int try_async(struct proc *caller_ptr);
+ static int try_one(struct proc *src_ptr, struct proc *dst_ptr);
+-static struct proc * pick_proc(void);
++static struct proc * pick_proc(void); /* so_2022 */
+ static void enqueue_head(struct proc *rp);
+ 
+ /* all idles share the same idle_priv structure */
+@@ -1713,6 +1713,7 @@ void dequeue(struct proc *rp)
+  *===========================================================================*/
+ static struct proc * pick_proc(void)
+ {
++  static int prev_bucket = 0;
+ /* Decide who to run now.  A new process is selected an returned.
+  * When a billable process is selected, record it in 'bill_ptr', so that the 
+  * clock task can tell who to bill for system time.
+@@ -1729,13 +1730,25 @@ static struct proc * pick_proc(void)
+    */
+   rdy_head = get_cpulocal_var(run_q_head);
+   for (q=0; q < NR_SCHED_QUEUES; q++) {	
+-	if(!(rp = rdy_head[q])) {
++    int bucket = prev_bucket + 1 + q - BUCKET_Q;
++	
++	int queue;
++	if (q >= BUCKET_Q && q < NR_SCHED_QUEUES - 1)
++		queue = (bucket % NR_BUCKETS) + BUCKET_Q);
++	else
++		queue = q;
++
++    if(!(rp = rdy_head[queue])) {
+ 		TRACE(VF_PICKPROC, printf("cpu %d queue %d empty\n", cpuid, q););
+ 		continue;
+ 	}
+ 	assert(proc_is_runnable(rp));
+ 	if (priv(rp)->s_flags & BILLABLE)	 	
+ 		get_cpulocal_var(bill_ptr) = rp; /* bill for system time */
++    /* if this was a user process, rememver its bucket */
++    if (q != queue) {
++      prev_bucket = bucket;
++    }
+ 	return rp;
+   }
+   return NULL;
+diff -rupNEZbB minix_original/usr/src/minix/servers/pm/proto.h minix_source/usr/src/minix/servers/pm/proto.h
+--- minix_original/usr/src/minix/servers/pm/proto.h	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/minix/servers/pm/proto.h	2022-05-27 16:41:48.949175133 +0200
+@@ -51,6 +51,8 @@ int do_getrusage(void);
+ void sched_init(void);
+ int sched_start_user(endpoint_t ep, struct mproc *rmp);
+ int sched_nice(struct mproc *rmp, int nice);
++int sched_set_bucket(struct mproc *rmp, int bucket_nr); /* so_2022 */
++int do_set_bucket(void); /* so_2022 */
+ 
+ /* profile.c */
+ int do_sprofile(void);
+diff -rupNEZbB minix_original/usr/src/minix/servers/pm/schedule.c minix_source/usr/src/minix/servers/pm/schedule.c
+--- minix_original/usr/src/minix/servers/pm/schedule.c	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/minix/servers/pm/schedule.c	2022-05-27 16:38:57.678499186 +0200
+@@ -110,3 +110,46 @@ int sched_nice(struct mproc *rmp, int ni
+ 
+ 	return (OK);
+ }
++
++int sched_set_bucket(struct mproc *rmp, int bucket_nr)
++{
++	int rv;
++    message m; /* message to be sent to sched */
++	
++    /* check if bucket_nr is legal */
++    if (bucket_nr < 0 || NR_BUCKETS - 1 < bucket_nr) {
++        return (EINVAL);
++    }
++
++    /* check if the process is scheduled directly by the kernel */
++    //TODO: pick one of these:
++    if (rmp->mp_scheduler == KERNEL || rmp->mp_scheduler == NONE) {
++        return (EPERM);
++    }  
++    if (rmp->mp_scheduler != SCHED_PROC_NR) {
++        return (EPERM);
++    }
++
++    m.m_pm_sched_scheduling_set_bucket.endpoint	= rmp->mp_endpoint;
++	m.m_pm_sched_scheduling_set_bucket.bucket	= bucket_nr;
++	if ((rv = _taskcall(rmp->mp_scheduler, SCHEDULING_SET_BUCKET, &m))) {
++		return rv;
++	}
++
++	return (OK);
++}
++
++int do_set_bucket(void)
++{
++	int arg_who = m_in.m1_i1;
++    int arg_bucket_nr = m_in.m1_i2;
++	struct mproc *rmp;
++
++	if (arg_who == 0)
++		rmp = mp;
++	else 
++		if ((rmp = find_proc(arg_who)) == NULL)
++			return(ESRCH);
++
++    return sched_set_bucket(rmp, arg_bucket_nr);
++}
+diff -rupNEZbB minix_original/usr/src/minix/servers/pm/table.c minix_source/usr/src/minix/servers/pm/table.c
+--- minix_original/usr/src/minix/servers/pm/table.c	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/minix/servers/pm/table.c	2022-05-27 15:59:57.692392862 +0200
+@@ -58,5 +58,6 @@ int (* const call_vec[NR_PM_CALLS])(void
+ 	CALL(PM_EXEC_RESTART)	= do_execrestart,
+ 	CALL(PM_GETEPINFO)	= do_getepinfo,		/* getepinfo(2) */
+ 	CALL(PM_GETPROCNR)	= do_getprocnr,		/* getprocnr(2) */
+-	CALL(PM_GETSYSINFO)	= do_getsysinfo		/* getsysinfo(2) */
++	CALL(PM_GETSYSINFO)	= do_getsysinfo,		/* getsysinfo(2) */
++	CALL(PM_SET_BUCKET)	= do_set_bucket,	/* set_bucket(2) */
+ };
+diff -rupNEZbB minix_original/usr/src/minix/servers/sched/main.c minix_source/usr/src/minix/servers/sched/main.c
+--- minix_original/usr/src/minix/servers/sched/main.c	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/minix/servers/sched/main.c	2022-05-27 16:42:18.292636324 +0200
+@@ -70,6 +70,9 @@ int main(void)
+ 		case SCHEDULING_SET_NICE:
+ 			result = do_nice(&m_in);
+ 			break;
++		case SCHEDULING_SET_BUCKET:
++			result = do_set_bucket(&m_in);
++			break;
+ 		case SCHEDULING_NO_QUANTUM:
+ 			/* This message was sent from the kernel, don't reply */
+ 			if (IPC_STATUS_FLAGS_TEST(ipc_status,
+diff -rupNEZbB minix_original/usr/src/minix/servers/sched/proto.h minix_source/usr/src/minix/servers/sched/proto.h
+--- minix_original/usr/src/minix/servers/sched/proto.h	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/minix/servers/sched/proto.h	2022-05-27 16:43:39.059670030 +0200
+@@ -4,14 +4,15 @@ struct schedproc;
+ #include <minix/timers.h>
+ 
+ /* main.c */
+-int main(void);
++int main(void); /* so_2022 */
+ void setreply(int proc_nr, int result);
+ 
+ /* schedule.c */
+ int do_noquantum(message *m_ptr);
+-int do_start_scheduling(message *m_ptr);
++int do_start_scheduling(message *m_ptr); /* so_2022 */
+ int do_stop_scheduling(message *m_ptr);
+-int do_nice(message *m_ptr);
++int do_nice(message *m_ptr); /* so_2022 */
++int do_set_bucket(message *m_ptr); /* so_2022 */
+ void init_scheduling(void);
+ 
+ /* utility.c */
+diff -rupNEZbB minix_original/usr/src/minix/servers/sched/schedproc.h minix_source/usr/src/minix/servers/sched/schedproc.h
+--- minix_original/usr/src/minix/servers/sched/schedproc.h	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/minix/servers/sched/schedproc.h	2022-05-23 12:23:49.734562860 +0200
+@@ -33,6 +33,7 @@ EXTERN struct schedproc {
+ 	bitchunk_t cpu_mask[BITMAP_CHUNKS(CONFIG_MAX_CPUS)]; /* what CPUs is the
+ 								process allowed
+ 								to run on */
++	int bucket;
+ } schedproc[NR_PROCS];
+ 
+ /* Flag values */
+diff -rupNEZbB minix_original/usr/src/minix/servers/sched/schedule.c minix_source/usr/src/minix/servers/sched/schedule.c
+--- minix_original/usr/src/minix/servers/sched/schedule.c	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/minix/servers/sched/schedule.c	2022-05-27 16:44:07.926472791 +0200
+@@ -19,7 +19,7 @@ static unsigned balance_timeout;
+ 
+ #define BALANCE_TIMEOUT	5 /* how often to balance queues in seconds */
+ 
+-static int schedule_process(struct schedproc * rmp, unsigned flags);
++static int schedule_process(struct schedproc * rmp, unsigned flags); /* so_2022 */
+ static void balance_queues(minix_timer_t *tp);
+ 
+ #define SCHEDULE_CHANGE_PRIO	0x1
+@@ -200,15 +200,16 @@ int do_start_scheduling(message *m_ptr)
+ 		break;
+ 		
+ 	case SCHEDULING_INHERIT:
+-		/* Inherit current priority and time slice from parent. Since there
+-		 * is currently only one scheduler scheduling the whole system, this
+-		 * value is local and we assert that the parent endpoint is valid */
++		/* Inherit current priority, time slice and bucket from parent. 
++		 * Since thereis currently only one scheduler scheduling the whole system, 
++		 * this value is local and we assert that the parent endpoint is valid */
+ 		if ((rv = sched_isokendpt(m_ptr->m_lsys_sched_scheduling_start.parent,
+ 				&parent_nr_n)) != OK)
+ 			return rv;
+ 
+ 		rmp->priority = schedproc[parent_nr_n].priority;
+ 		rmp->time_slice = schedproc[parent_nr_n].time_slice;
++		rmp->bucket = schedproc[parent_nr_n].bucket;
+ 		break;
+ 		
+ 	default: 
+@@ -256,39 +257,77 @@ int do_start_scheduling(message *m_ptr)
+  *===========================================================================*/
+ int do_nice(message *m_ptr)
+ {
++	// struct schedproc *rmp;
++	// int rv;
++	// int proc_nr_n;
++	// unsigned new_q, old_q, old_max_q;
++
++	// /* check who can send you requests */
++	// if (!accept_message(m_ptr))
++	// 	return EPERM;
++
++	// if (sched_isokendpt(m_ptr->m_pm_sched_scheduling_set_nice.endpoint, &proc_nr_n) != OK) {
++	// 	printf("SCHED: WARNING: got an invalid endpoint in OoQ msg "
++	// 	"%d\n", m_ptr->m_pm_sched_scheduling_set_nice.endpoint);
++	// 	return EBADEPT;
++	// }
++
++	// rmp = &schedproc[proc_nr_n];
++	// new_q = m_ptr->m_pm_sched_scheduling_set_nice.maxprio;
++	// if (new_q >= NR_SCHED_QUEUES) {
++	// 	return EINVAL;
++	// }
++
++	// /* Store old values, in case we need to roll back the changes */
++	// old_q     = rmp->priority;
++	// old_max_q = rmp->max_priority;
++
++	// /* Update the proc entry and reschedule the process */
++	// rmp->max_priority = rmp->priority = new_q;
++
++	// if ((rv = schedule_process_local(rmp)) != OK) {
++	// 	/* Something went wrong when rescheduling the process, roll
++	// 	 * back the changes to proc struct */
++	// 	rmp->priority     = old_q;
++	// 	rmp->max_priority = old_max_q;
++	// }
++
++	// return rv;
++
++	/* `nice` shouldn't affect user processes at all */
++	return 0; //TODO: co to ma zwracać?
++}
++
++int do_set_bucket(message *m_ptr)
++{
+ 	struct schedproc *rmp;
+ 	int rv;
+ 	int proc_nr_n;
+-	unsigned new_q, old_q, old_max_q;
++	unsigned new_bucket, old_bucket;
+ 
+ 	/* check who can send you requests */
+ 	if (!accept_message(m_ptr))
+ 		return EPERM;
+ 
+-	if (sched_isokendpt(m_ptr->m_pm_sched_scheduling_set_nice.endpoint, &proc_nr_n) != OK) {
++	if (sched_isokendpt(m_ptr->m_pm_sched_scheduling_set_bucket.endpoint, &proc_nr_n) != OK) {
+ 		printf("SCHED: WARNING: got an invalid endpoint in OoQ msg "
+-		"%d\n", m_ptr->m_pm_sched_scheduling_set_nice.endpoint);
++		"%d\n", m_ptr->m_pm_sched_scheduling_set_bucket.endpoint);
+ 		return EBADEPT;
+ 	}
+ 
+ 	rmp = &schedproc[proc_nr_n];
+-	new_q = m_ptr->m_pm_sched_scheduling_set_nice.maxprio;
+-	if (new_q >= NR_SCHED_QUEUES) {
+-		return EINVAL;
+-	}
++	new_bucket = m_ptr->m_pm_sched_scheduling_set_bucket.bucket;
+ 
+ 	/* Store old values, in case we need to roll back the changes */
+-	old_q     = rmp->priority;
+-	old_max_q = rmp->max_priority;
++	old_bucket = rmp->bucket;
+ 
+ 	/* Update the proc entry and reschedule the process */
+-	rmp->max_priority = rmp->priority = new_q;
++	rmp->bucket = new_bucket;
+ 
+ 	if ((rv = schedule_process_local(rmp)) != OK) {
+ 		/* Something went wrong when rescheduling the process, roll
+ 		 * back the changes to proc struct */
+-		rmp->priority     = old_q;
+-		rmp->max_priority = old_max_q;
++		rmp->bucket = old_bucket;
+ 	}
+ 
+ 	return rv;
+@@ -305,7 +344,7 @@ static int schedule_process(struct sched
+ 	pick_cpu(rmp);
+ 
+ 	if (flags & SCHEDULE_CHANGE_PRIO)
+-		new_prio = rmp->priority;
++		new_prio = (rmp->priority < BUCKET_Q)? rmp->priority : BUCKET_Q + rmp->bucket;
+ 	else
+ 		new_prio = -1;
+ 
