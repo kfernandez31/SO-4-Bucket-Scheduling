@@ -49,18 +49,27 @@ diff -rupNEZbB minix_original/usr/src/minix/include/minix/com.h minix_source/usr
   *              Messages for USB                                             *
 diff -rupNEZbB minix_original/usr/src/minix/include/minix/config.h minix_source/usr/src/minix/include/minix/config.h
 --- minix_original/usr/src/minix/include/minix/config.h	2014-09-13 23:56:50.000000000 +0200
-+++ minix_source/usr/src/minix/include/minix/config.h	2022-05-27 16:28:05.326605191 +0200
-@@ -59,7 +59,9 @@
++++ minix_source/usr/src/minix/include/minix/config.h	2022-05-27 17:35:46.643942253 +0200
+@@ -59,12 +59,14 @@
  /* Scheduling priorities. Values must start at zero (highest
   * priority) and increment.
   */
 -#define NR_SCHED_QUEUES   16	/* MUST equal minimum priority + 1 */
 +#define BUCKET_Q    8 
++#define LOWEST_BUCKET_Q (BUCKET_Q - 1)
 +#define NR_BUCKETS  10
-+#define NR_SCHED_QUEUES   (1 + BUCKET_Q + NR_BUCKETS)	/* MUST equal minimum priority + 1 */
++#define NR_SCHED_QUEUES   (LOWEST_BUCKET_Q + NR_BUCKETS + 1)	/* MUST equal minimum priority + 1 */
  #define TASK_Q		   0	/* highest, used for kernel tasks */
- #define MAX_USER_Q  	   0    /* highest priority for user processes */   
- #define USER_Q  	  ((MIN_USER_Q - MAX_USER_Q) / 2 + MAX_USER_Q) /* default
+-#define MAX_USER_Q  	   0    /* highest priority for user processes */   
+-#define USER_Q  	  ((MIN_USER_Q - MAX_USER_Q) / 2 + MAX_USER_Q) /* default
+-						(should correspond to nice 0) */
+-#define MIN_USER_Q	  (NR_SCHED_QUEUES - 1)	/* minimum priority for user
++#define MAX_USER_Q	  LOWEST_BUCKET_Q    /* highest (and only) priority for user processes */   
++#define USER_Q  	  LOWEST_BUCKET_Q
++#define MIN_USER_Q	  LOWEST_BUCKET_Q	/* minimum priority for user
+ 						   processes */
+ /* default scheduling quanta */
+ #define USER_QUANTUM 200
 diff -rupNEZbB minix_original/usr/src/minix/include/minix/ipc.h minix_source/usr/src/minix/include/minix/ipc.h
 --- minix_original/usr/src/minix/include/minix/ipc.h	2014-09-13 23:56:50.000000000 +0200
 +++ minix_source/usr/src/minix/include/minix/ipc.h	2022-05-27 15:55:02.002731795 +0200
@@ -89,7 +98,7 @@ diff -rupNEZbB minix_original/usr/src/minix/include/minix/ipc.h minix_source/usr
  		mess_rs_pm_exec_restart	m_rs_pm_exec_restart;
 diff -rupNEZbB minix_original/usr/src/minix/kernel/proc.c minix_source/usr/src/minix/kernel/proc.c
 --- minix_original/usr/src/minix/kernel/proc.c	2014-09-13 23:56:50.000000000 +0200
-+++ minix_source/usr/src/minix/kernel/proc.c	2022-05-27 16:41:30.159094929 +0200
++++ minix_source/usr/src/minix/kernel/proc.c	2022-05-27 17:41:47.631971519 +0200
 @@ -59,7 +59,7 @@ static int deadlock(int function, regist
  	endpoint_t src_dst_e);
  static int try_async(struct proc *caller_ptr);
@@ -112,11 +121,11 @@ diff -rupNEZbB minix_original/usr/src/minix/kernel/proc.c minix_source/usr/src/m
    rdy_head = get_cpulocal_var(run_q_head);
    for (q=0; q < NR_SCHED_QUEUES; q++) {	
 -	if(!(rp = rdy_head[q])) {
-+    int bucket = prev_bucket + 1 + q - BUCKET_Q;
++    int bucket = prev_bucket + 1 + q - LOWEST_BUCKET_Q;
 +	
 +	int queue;
-+	if (q >= BUCKET_Q && q < NR_SCHED_QUEUES - 1)
-+		queue = (bucket % NR_BUCKETS) + BUCKET_Q);
++	if (q >= LOWEST_BUCKET_Q && q < NR_SCHED_QUEUES - 1)
++		queue = (bucket % NR_BUCKETS) + LOWEST_BUCKET_Q;
 +	else
 +		queue = q;
 +
@@ -255,7 +264,7 @@ diff -rupNEZbB minix_original/usr/src/minix/servers/sched/schedproc.h minix_sour
  /* Flag values */
 diff -rupNEZbB minix_original/usr/src/minix/servers/sched/schedule.c minix_source/usr/src/minix/servers/sched/schedule.c
 --- minix_original/usr/src/minix/servers/sched/schedule.c	2014-09-13 23:56:50.000000000 +0200
-+++ minix_source/usr/src/minix/servers/sched/schedule.c	2022-05-27 16:44:07.926472791 +0200
++++ minix_source/usr/src/minix/servers/sched/schedule.c	2022-05-27 17:36:33.114110710 +0200
 @@ -19,7 +19,7 @@ static unsigned balance_timeout;
  
  #define BALANCE_TIMEOUT	5 /* how often to balance queues in seconds */
@@ -380,7 +389,7 @@ diff -rupNEZbB minix_original/usr/src/minix/servers/sched/schedule.c minix_sourc
  
  	if (flags & SCHEDULE_CHANGE_PRIO)
 -		new_prio = rmp->priority;
-+		new_prio = (rmp->priority < BUCKET_Q)? rmp->priority : BUCKET_Q + rmp->bucket;
++		new_prio = (rmp->priority < LOWEST_BUCKET_Q)? rmp->priority : LOWEST_BUCKET_Q + rmp->bucket;
  	else
  		new_prio = -1;
  

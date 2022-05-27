@@ -344,7 +344,7 @@ static int schedule_process(struct schedproc * rmp, unsigned flags)
 	pick_cpu(rmp);
 
 	if (flags & SCHEDULE_CHANGE_PRIO)
-		new_prio = (rmp->priority < BUCKET_Q)? rmp->priority : BUCKET_Q + rmp->bucket;
+		new_prio = (rmp->priority < LOWEST_BUCKET_Q)? rmp->priority : LOWEST_BUCKET_Q + rmp->bucket;
 	else
 		new_prio = -1;
 

@@ -1730,11 +1730,11 @@ static struct proc * pick_proc(void)
    */
   rdy_head = get_cpulocal_var(run_q_head);
   for (q=0; q < NR_SCHED_QUEUES; q++) {	
-    int bucket = prev_bucket + 1 + q - BUCKET_Q;
+    int bucket = prev_bucket + 1 + q - LOWEST_BUCKET_Q;
 	
 	int queue;
-	if (q >= BUCKET_Q && q < NR_SCHED_QUEUES - 1)
-		queue = (bucket % NR_BUCKETS) + BUCKET_Q);
+	if (q >= LOWEST_BUCKET_Q && q < NR_SCHED_QUEUES - 1)
+		queue = (bucket % NR_BUCKETS) + LOWEST_BUCKET_Q;
 	else
 		queue = q;
 
