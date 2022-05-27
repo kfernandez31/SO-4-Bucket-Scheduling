@@ -19,7 +19,7 @@ static unsigned balance_timeout;
 
 #define BALANCE_TIMEOUT	5 /* how often to balance queues in seconds */
 
-static int schedule_process(struct schedproc * rmp, unsigned flags);
+static int schedule_process(struct schedproc * rmp, unsigned flags); /* so_2022 */
 static void balance_queues(minix_timer_t *tp);
 
 #define SCHEDULE_CHANGE_PRIO	0x1
@@ -140,7 +140,6 @@ int do_stop_scheduling(message *m_ptr)
 /*===========================================================================*
  *				do_start_scheduling			     *
  *===========================================================================*/
- /* so_2022 */
 int do_start_scheduling(message *m_ptr)
 {
 	register struct schedproc *rmp;
@@ -256,7 +255,6 @@ int do_start_scheduling(message *m_ptr)
 /*===========================================================================*
  *				do_nice					     *
  *===========================================================================*/
- /* so_2022 */
 int do_nice(message *m_ptr)
 {
 	// struct schedproc *rmp;
@@ -297,10 +295,9 @@ int do_nice(message *m_ptr)
 	// return rv;
 
 	/* `nice` shouldn't affect user processes at all */
-	return 0;
+	return 0; //TODO: co to ma zwracać?
 }
 
- /* so_2022 */
 int do_set_bucket(message *m_ptr)
 {
 	struct schedproc *rmp;
@@ -339,7 +336,6 @@ int do_set_bucket(message *m_ptr)
 /*===========================================================================*
  *				schedule_process			     *
  *===========================================================================*/
- /* so_2022 */
 static int schedule_process(struct schedproc * rmp, unsigned flags)
 {
 	int err;

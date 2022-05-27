@@ -59,7 +59,7 @@ static int deadlock(int function, register struct proc *caller,
 	endpoint_t src_dst_e);
 static int try_async(struct proc *caller_ptr);
 static int try_one(struct proc *src_ptr, struct proc *dst_ptr);
-static struct proc * pick_proc(void);
+static struct proc * pick_proc(void); /* so_2022 */
 static void enqueue_head(struct proc *rp);
 
 /* all idles share the same idle_priv structure */
@@ -1711,7 +1711,6 @@ void dequeue(struct proc *rp)
 /*===========================================================================*
  *				pick_proc				     * 
  *===========================================================================*/
-/* so_2022 */
 static struct proc * pick_proc(void)
 {
   static int prev_bucket = 0;
@@ -1732,7 +1731,13 @@ static struct proc * pick_proc(void)
   rdy_head = get_cpulocal_var(run_q_head);
   for (q=0; q < NR_SCHED_QUEUES; q++) {	
     int bucket = prev_bucket + 1 + q - BUCKET_Q;
-    int queue = (q >= BUCKET_Q && q < NR_SCHED_QUEUES - 1)? ((bucket % NR_BUCKETS) + BUCKET_Q) : q;
+	
+	int queue;
+	if (q >= BUCKET_Q && q < NR_SCHED_QUEUES - 1)
+		queue = (bucket % NR_BUCKETS) + BUCKET_Q);
+	else
+		queue = q;
+
     if(!(rp = rdy_head[queue])) {
       TRACE(VF_PICKPROC, printf("cpu %d queue %d empty\n", cpuid, q););
       continue;

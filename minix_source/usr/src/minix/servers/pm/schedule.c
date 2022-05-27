@@ -113,6 +113,7 @@ int sched_nice(struct mproc *rmp, int nice)
 
 int sched_set_bucket(struct mproc *rmp, int bucket_nr)
 {
+	int rv;
     message m; /* message to be sent to sched */
 	
     /* check if bucket_nr is legal */
@@ -150,5 +151,5 @@ int do_set_bucket(void)
 		if ((rmp = find_proc(arg_who)) == NULL)
 			return(ESRCH);
 
-    return sched_set_bucket(rmp, bucket_nr);
+    return sched_set_bucket(rmp, arg_bucket_nr);
 }
