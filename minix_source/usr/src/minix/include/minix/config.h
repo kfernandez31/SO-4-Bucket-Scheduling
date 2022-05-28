@@ -64,7 +64,7 @@
 #define NR_BUCKETS  10
 #define NR_SCHED_QUEUES   (LOWEST_BUCKET_Q + NR_BUCKETS + 1)	/* MUST equal minimum priority + 1 */
 #define TASK_Q		   0	/* highest, used for kernel tasks */
-#define MAX_USER_Q	  LOWEST_BUCKET_Q    /* highest (and only) priority for user processes */   
+#define MAX_USER_Q	  LOWEST_BUCKET_Q    /* highest priority for user processes */   
 #define USER_Q  	  LOWEST_BUCKET_Q
 #define MIN_USER_Q	  (NR_SCHED_QUEUES - 1)	/* minimum priority for user
 						   processes */

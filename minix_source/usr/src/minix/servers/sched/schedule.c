@@ -295,7 +295,7 @@ int do_nice(message *m_ptr)
 	// return rv;
 
 	/* `nice` shouldn't affect user processes at all */
-	return 0; //TODO: co to ma zwracać?
+	return (ENOSYS);
 }
 
 int do_set_bucket(message *m_ptr)
