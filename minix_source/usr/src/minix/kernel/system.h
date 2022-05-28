@@ -200,8 +200,8 @@ int do_setmcontext(struct proc * caller, message *m_ptr);
 #define do_setmcontext NULL
 #endif
 
-int do_schedule(struct proc * caller, message *m_ptr);
-int do_schedctl(struct proc * caller, message *m_ptr);
+int do_schedule(struct proc * caller, message *m_ptr); /* so_2022 */
+int do_schedctl(struct proc * caller, message *m_ptr); /* so_2022 */
 
 int do_statectl(struct proc * caller, message *m_ptr);
 #if ! USE_STATECTL

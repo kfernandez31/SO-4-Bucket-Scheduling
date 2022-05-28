@@ -1,3 +1,51 @@
+diff -rupNEZbB minix_original/usr/include/minix/ipc.h minix_source/usr/include/minix/ipc.h
+--- minix_original/usr/include/minix/ipc.h	2014-09-14 11:00:44.000000000 +0200
++++ minix_source/usr/include/minix/ipc.h	2022-05-28 16:07:32.339748499 +0200
+@@ -978,8 +978,9 @@ typedef struct {
+ 	int priority;
+ 	int quantum;
+ 	int cpu;
++	int bucket;
+ 
+-	uint8_t padding[36];
++	uint8_t padding[32];
+ } mess_lsys_krn_schedctl;
+ _ASSERT_MSG_SIZE(mess_lsys_krn_schedctl);
+ 
+@@ -988,8 +989,9 @@ typedef struct {
+ 	int quantum;
+ 	int priority;
+ 	int cpu;
++	int bucket;
+ 
+-	uint8_t padding[40];
++	uint8_t padding[36];
+ } mess_lsys_krn_schedule;
+ _ASSERT_MSG_SIZE(mess_lsys_krn_schedule);
+ 
+diff -rupNEZbB minix_original/usr/include/minix/syslib.h minix_source/usr/include/minix/syslib.h
+--- minix_original/usr/include/minix/syslib.h	2014-09-14 11:00:44.000000000 +0200
++++ minix_source/usr/include/minix/syslib.h	2022-05-28 15:39:41.971211182 +0200
+@@ -38,7 +38,7 @@ int sys_exit(void);
+ int sys_trace(int req, endpoint_t proc_ep, long addr, long *data_p);
+ 
+ int sys_schedule(endpoint_t proc_ep, int priority, int quantum, int
+-	cpu);
++	cpu, int bucket);
+ int sys_schedctl(unsigned flags, endpoint_t proc_ep, int priority, int
+ 	quantum, int cpu);
+ 
+diff -rupNEZbB minix_original/usr/src/include/unistd.h minix_source/usr/src/include/unistd.h
+--- minix_original/usr/src/include/unistd.h	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/include/unistd.h	2022-05-28 08:43:40.634364991 +0200
+@@ -411,5 +411,7 @@ extern	 int optreset;		/* getopt(3) exte
+ extern	 char *suboptarg;	/* getsubopt(3) external variable */
+ #endif
+ 
++int set_bucket(int bucket_nr); /* so_2022 */
++
+ __END_DECLS
+ #endif /* !_UNISTD_H_ */
 diff -rupNEZbB minix_original/usr/src/lib/libc/misc/Makefile.inc minix_source/usr/src/lib/libc/misc/Makefile.inc
 --- minix_original/usr/src/lib/libc/misc/Makefile.inc	2014-09-13 23:56:50.000000000 +0200
 +++ minix_source/usr/src/lib/libc/misc/Makefile.inc	2022-05-27 16:08:02.919375549 +0200
@@ -49,8 +97,8 @@ diff -rupNEZbB minix_original/usr/src/minix/include/minix/com.h minix_source/usr
   *              Messages for USB                                             *
 diff -rupNEZbB minix_original/usr/src/minix/include/minix/config.h minix_source/usr/src/minix/include/minix/config.h
 --- minix_original/usr/src/minix/include/minix/config.h	2014-09-13 23:56:50.000000000 +0200
-+++ minix_source/usr/src/minix/include/minix/config.h	2022-05-27 17:35:46.643942253 +0200
-@@ -59,12 +59,14 @@
++++ minix_source/usr/src/minix/include/minix/config.h	2022-05-28 08:29:12.392091421 +0200
+@@ -59,11 +59,13 @@
  /* Scheduling priorities. Values must start at zero (highest
   * priority) and increment.
   */
@@ -63,13 +111,11 @@ diff -rupNEZbB minix_original/usr/src/minix/include/minix/config.h minix_source/
 -#define MAX_USER_Q  	   0    /* highest priority for user processes */   
 -#define USER_Q  	  ((MIN_USER_Q - MAX_USER_Q) / 2 + MAX_USER_Q) /* default
 -						(should correspond to nice 0) */
--#define MIN_USER_Q	  (NR_SCHED_QUEUES - 1)	/* minimum priority for user
-+#define MAX_USER_Q	  LOWEST_BUCKET_Q    /* highest (and only) priority for user processes */   
++#define MAX_USER_Q	  LOWEST_BUCKET_Q    /* highest priority for user processes */   
 +#define USER_Q  	  LOWEST_BUCKET_Q
-+#define MIN_USER_Q	  LOWEST_BUCKET_Q	/* minimum priority for user
+ #define MIN_USER_Q	  (NR_SCHED_QUEUES - 1)	/* minimum priority for user
  						   processes */
  /* default scheduling quanta */
- #define USER_QUANTUM 200
 diff -rupNEZbB minix_original/usr/src/minix/include/minix/ipc.h minix_source/usr/src/minix/include/minix/ipc.h
 --- minix_original/usr/src/minix/include/minix/ipc.h	2014-09-13 23:56:50.000000000 +0200
 +++ minix_source/usr/src/minix/include/minix/ipc.h	2022-05-27 15:55:02.002731795 +0200
@@ -96,23 +142,67 @@ diff -rupNEZbB minix_original/usr/src/minix/include/minix/ipc.h minix_source/usr
  		mess_readclock_lc_rtcdev m_readclock_lc_rtcdev;
  		mess_rs_init		m_rs_init;
  		mess_rs_pm_exec_restart	m_rs_pm_exec_restart;
+diff -rupNEZbB minix_original/usr/src/minix/include/minix/syslib.h minix_source/usr/src/minix/include/minix/syslib.h
+--- minix_original/usr/src/minix/include/minix/syslib.h	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/minix/include/minix/syslib.h	2022-05-28 15:42:47.344705394 +0200
+@@ -38,9 +38,9 @@ int sys_exit(void);
+ int sys_trace(int req, endpoint_t proc_ep, long addr, long *data_p);
+ 
+ int sys_schedule(endpoint_t proc_ep, int priority, int quantum, int
+-	cpu);
++	cpu, int bucket); /*so_2022*/
+ int sys_schedctl(unsigned flags, endpoint_t proc_ep, int priority, int
+-	quantum, int cpu);
++	quantum, int cpu, int bucket); /*so_2022*/
+ 
+ /* Shorthands for sys_runctl() system call. */
+ #define sys_stop(proc_ep) sys_runctl(proc_ep, RC_STOP, 0)
 diff -rupNEZbB minix_original/usr/src/minix/kernel/proc.c minix_source/usr/src/minix/kernel/proc.c
 --- minix_original/usr/src/minix/kernel/proc.c	2014-09-13 23:56:50.000000000 +0200
-+++ minix_source/usr/src/minix/kernel/proc.c	2022-05-27 17:41:47.631971519 +0200
-@@ -59,7 +59,7 @@ static int deadlock(int function, regist
++++ minix_source/usr/src/minix/kernel/proc.c	2022-05-28 15:59:17.856941169 +0200
+@@ -59,8 +59,8 @@ static int deadlock(int function, regist
  	endpoint_t src_dst_e);
  static int try_async(struct proc *caller_ptr);
  static int try_one(struct proc *src_ptr, struct proc *dst_ptr);
 -static struct proc * pick_proc(void);
+-static void enqueue_head(struct proc *rp);
 +static struct proc * pick_proc(void); /* so_2022 */
- static void enqueue_head(struct proc *rp);
++static void enqueue_head(struct proc *rp); /* so_2022 */
  
  /* all idles share the same idle_priv structure */
+ static struct priv idle_priv;
+@@ -1535,7 +1535,7 @@ void enqueue(
+  * This function can be used x-cpu as it always uses the queues of the cpu the
+  * process is assigned to.
+  */
+-  int q = rp->p_priority;	 		/* scheduling queue to use */
++  int q = (rp->p_bucket != -1)? rp->p_priority : (LOWEST_BUCKET_Q + rp->p_bucket);	 		/* scheduling queue to use */
+   struct proc **rdy_head, **rdy_tail;
+   
+   assert(proc_is_runnable(rp));
+@@ -1600,7 +1600,7 @@ void enqueue(
+  */
+ static void enqueue_head(struct proc *rp)
+ {
+-  const int q = rp->p_priority;	 		/* scheduling queue to use */
++  const int q = (rp->p_bucket != -1)? rp->p_priority : (LOWEST_BUCKET_Q + rp->p_bucket);	 		/* scheduling queue to use */
+ 
+   struct proc **rdy_head, **rdy_tail;
+ 
+@@ -1654,7 +1654,7 @@ void dequeue(struct proc *rp)
+  * This function can operate x-cpu as it always removes the process from the
+  * queue of the cpu the process is currently assigned to.
+  */
+-  int q = rp->p_priority;		/* queue to use */
++  int q = (rp->p_bucket != -1)? rp->p_priority : (LOWEST_BUCKET_Q + rp->p_bucket);		/* queue to use */
+   struct proc **xpp;			/* iterate over queue */
+   struct proc *prev_xp;
+   u64_t tsc, tsc_delta;
 @@ -1713,6 +1713,7 @@ void dequeue(struct proc *rp)
   *===========================================================================*/
  static struct proc * pick_proc(void)
  {
-+  static int prev_bucket = 0;
++  static int prev_bucket = -1;
  /* Decide who to run now.  A new process is selected an returned.
   * When a billable process is selected, record it in 'bill_ptr', so that the 
   * clock task can tell who to bill for system time.
@@ -121,10 +211,10 @@ diff -rupNEZbB minix_original/usr/src/minix/kernel/proc.c minix_source/usr/src/m
    rdy_head = get_cpulocal_var(run_q_head);
    for (q=0; q < NR_SCHED_QUEUES; q++) {	
 -	if(!(rp = rdy_head[q])) {
-+    int bucket = prev_bucket + 1 + q - LOWEST_BUCKET_Q;
++    int bucket = (prev_bucket + 1) + (q - LOWEST_BUCKET_Q);
 +	
 +	int queue;
-+	if (q >= LOWEST_BUCKET_Q && q < NR_SCHED_QUEUES - 1)
++	if (q >= LOWEST_BUCKET_Q && q < NR_SCHED_QUEUES)
 +		queue = (bucket % NR_BUCKETS) + LOWEST_BUCKET_Q;
 +	else
 +		queue = q;
@@ -136,13 +226,170 @@ diff -rupNEZbB minix_original/usr/src/minix/kernel/proc.c minix_source/usr/src/m
  	assert(proc_is_runnable(rp));
  	if (priv(rp)->s_flags & BILLABLE)	 	
  		get_cpulocal_var(bill_ptr) = rp; /* bill for system time */
-+    /* if this was a user process, rememver its bucket */
++    /* if this was a user process, remember its bucket */
 +    if (q != queue) {
 +      prev_bucket = bucket;
 +    }
  	return rp;
    }
    return NULL;
+diff -rupNEZbB minix_original/usr/src/minix/kernel/proc.h minix_source/usr/src/minix/kernel/proc.h
+--- minix_original/usr/src/minix/kernel/proc.h	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/minix/kernel/proc.h	2022-05-28 16:05:08.812298410 +0200
+@@ -20,6 +20,7 @@
+ #include "priv.h"
+ 
+ struct proc {
++  int p_bucket; /* bucket used in scheduling */
+   struct stackframe_s p_reg;	/* process' registers saved in stack frame */
+   struct segframe p_seg;	/* segment descriptors */
+   proc_nr_t p_nr;		/* number of this process (for fast access) */
+diff -rupNEZbB minix_original/usr/src/minix/kernel/proto.h minix_source/usr/src/minix/kernel/proto.h
+--- minix_original/usr/src/minix/kernel/proto.h	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/minix/kernel/proto.h	2022-05-28 16:00:21.963797556 +0200
+@@ -58,8 +58,8 @@ int has_pending_notify(struct proc * cal
+ int has_pending_asend(struct proc * caller, int src_p);
+ void unset_notify_pending(struct proc * caller, int src_p);
+ int mini_notify(const struct proc *src, endpoint_t dst);
+-void enqueue(struct proc *rp);
+-void dequeue(struct proc *rp);
++void enqueue(struct proc *rp); /* so_2022 */
++void dequeue(struct proc *rp); /* so_2022 */
+ void switch_to_user(void);
+ void arch_proc_reset(struct proc *rp);
+ void arch_proc_setcontext(struct proc *rp, struct stackframe_s *state,
+@@ -99,7 +99,7 @@ void system_init(void);
+ void clear_endpoint(struct proc *rc);
+ void clear_ipc_refs(struct proc *rc, int caller_ret);
+ void kernel_call_resume(struct proc *p);
+-int sched_proc(struct proc *rp, int priority, int quantum, int cpu);
++int sched_proc(struct proc *rp, int priority, int quantum, int cpu, int bucket); /* so_2022 */
+ 
+ /* system/do_vtimer.c */
+ void vtimer_check(struct proc *rp);
+diff -rupNEZbB minix_original/usr/src/minix/kernel/system/do_schedctl.c minix_source/usr/src/minix/kernel/system/do_schedctl.c
+--- minix_original/usr/src/minix/kernel/system/do_schedctl.c	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/minix/kernel/system/do_schedctl.c	2022-05-28 15:47:05.735127246 +0200
+@@ -8,7 +8,7 @@ int do_schedctl(struct proc * caller, me
+ {
+ 	struct proc *p;
+ 	uint32_t flags;
+-	int priority, quantum, cpu;
++	int priority, quantum, cpu, bucket;
+ 	int proc_nr;
+ 	int r;
+ 
+@@ -32,9 +32,10 @@ int do_schedctl(struct proc * caller, me
+ 		priority = m_ptr->m_lsys_krn_schedctl.priority;
+ 		quantum = m_ptr->m_lsys_krn_schedctl.quantum;
+ 		cpu = m_ptr->m_lsys_krn_schedctl.cpu;
++		bucket = -1;
+ 
+ 		/* Try to schedule the process. */
+-		if((r = sched_proc(p, priority, quantum, cpu) != OK))
++		if((r = sched_proc(p, priority, quantum, cpu, bucket) != OK))
+ 			return r;
+ 		p->p_scheduler = NULL;
+ 	} else {
+diff -rupNEZbB minix_original/usr/src/minix/kernel/system/do_schedule.c minix_source/usr/src/minix/kernel/system/do_schedule.c
+--- minix_original/usr/src/minix/kernel/system/do_schedule.c	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/minix/kernel/system/do_schedule.c	2022-05-28 15:46:02.171673642 +0200
+@@ -9,7 +9,7 @@ int do_schedule(struct proc * caller, me
+ {
+ 	struct proc *p;
+ 	int proc_nr;
+-	int priority, quantum, cpu;
++	int priority, quantum, cpu, bucket;
+ 
+ 	if (!isokendpt(m_ptr->m_lsys_krn_schedule.endpoint, &proc_nr))
+ 		return EINVAL;
+@@ -24,6 +24,7 @@ int do_schedule(struct proc * caller, me
+ 	priority = m_ptr->m_lsys_krn_schedule.priority;
+ 	quantum = m_ptr->m_lsys_krn_schedule.quantum;
+ 	cpu = m_ptr->m_lsys_krn_schedule.cpu;
++	bucket = m_ptr->m_lsys_krn_schedule.bucket;
+ 
+-	return sched_proc(p, priority, quantum, cpu);
++	return sched_proc(p, priority, quantum, cpu, bucket);
+ }
+diff -rupNEZbB minix_original/usr/src/minix/kernel/system.c minix_source/usr/src/minix/kernel/system.c
+--- minix_original/usr/src/minix/kernel/system.c	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/minix/kernel/system.c	2022-05-28 15:51:03.968980775 +0200
+@@ -621,7 +621,8 @@ void kernel_call_resume(struct proc *cal
+ int sched_proc(struct proc *p,
+ 			int priority,
+ 			int quantum,
+-			int cpu)
++			int cpu,
++      int bucket)
+ {
+ 	/* Make sure the values given are within the allowed range.*/
+ 	if ((priority < TASK_Q && priority != -1) || priority > NR_SCHED_QUEUES)
+@@ -630,6 +631,9 @@ int sched_proc(struct proc *p,
+ 	if (quantum < 1 && quantum != -1)
+ 		return(EINVAL);
+ 
++  if (bucket != -1)
++    p->p_bucket = bucket;
++
+ #ifdef CONFIG_SMP
+ 	if ((cpu < 0 && cpu != -1) || (cpu > 0 && (unsigned) cpu >= ncpus))
+ 		return(EINVAL);
+diff -rupNEZbB minix_original/usr/src/minix/kernel/system.h minix_source/usr/src/minix/kernel/system.h
+--- minix_original/usr/src/minix/kernel/system.h	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/minix/kernel/system.h	2022-05-28 16:00:59.040727118 +0200
+@@ -200,8 +200,8 @@ int do_setmcontext(struct proc * caller,
+ #define do_setmcontext NULL
+ #endif
+ 
+-int do_schedule(struct proc * caller, message *m_ptr);
+-int do_schedctl(struct proc * caller, message *m_ptr);
++int do_schedule(struct proc * caller, message *m_ptr); /* so_2022 */
++int do_schedctl(struct proc * caller, message *m_ptr); /* so_2022 */
+ 
+ int do_statectl(struct proc * caller, message *m_ptr);
+ #if ! USE_STATECTL
+diff -rupNEZbB minix_original/usr/src/minix/lib/libsys/sys_schedctl.c minix_source/usr/src/minix/lib/libsys/sys_schedctl.c
+--- minix_original/usr/src/minix/lib/libsys/sys_schedctl.c	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/minix/lib/libsys/sys_schedctl.c	2022-05-28 15:41:52.881309919 +0200
+@@ -1,7 +1,7 @@
+ #include "syslib.h"
+ 
+ int sys_schedctl(uint32_t flags, endpoint_t proc_ep, int priority, int quantum,
+-	int cpu)
++	int cpu, int bucket)
+ {
+ 	message m;
+ 
+@@ -10,6 +10,7 @@ int sys_schedctl(uint32_t flags, endpoin
+ 	m.m_lsys_krn_schedctl.priority = priority;
+ 	m.m_lsys_krn_schedctl.quantum = quantum;
+ 	m.m_lsys_krn_schedctl.cpu = cpu;
++	m.m_lsys_krn_schedctl.bucket = bucket;
+ 
+ 	return(_kernel_call(SYS_SCHEDCTL, &m));
+ }
+diff -rupNEZbB minix_original/usr/src/minix/lib/libsys/sys_schedule.c minix_source/usr/src/minix/lib/libsys/sys_schedule.c
+--- minix_original/usr/src/minix/lib/libsys/sys_schedule.c	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/minix/lib/libsys/sys_schedule.c	2022-05-28 15:42:24.108010856 +0200
+@@ -3,7 +3,8 @@
+ int sys_schedule(endpoint_t proc_ep,
+ 			int priority,
+ 			int quantum,
+-			int cpu)
++			int cpu,
++			int bucket)
+ {
+ 	message m;
+ 
+@@ -11,5 +12,7 @@ int sys_schedule(endpoint_t proc_ep,
+ 	m.m_lsys_krn_schedule.priority = priority;
+ 	m.m_lsys_krn_schedule.quantum  = quantum;
+ 	m.m_lsys_krn_schedule.cpu = cpu;
++	m.m_lsys_krn_schedule.bucket = bucket;
++	
+ 	return(_kernel_call(SYS_SCHEDULE, &m));
+ }
 diff -rupNEZbB minix_original/usr/src/minix/servers/pm/proto.h minix_source/usr/src/minix/servers/pm/proto.h
 --- minix_original/usr/src/minix/servers/pm/proto.h	2014-09-13 23:56:50.000000000 +0200
 +++ minix_source/usr/src/minix/servers/pm/proto.h	2022-05-27 16:41:48.949175133 +0200
@@ -157,7 +404,7 @@ diff -rupNEZbB minix_original/usr/src/minix/servers/pm/proto.h minix_source/usr/
  int do_sprofile(void);
 diff -rupNEZbB minix_original/usr/src/minix/servers/pm/schedule.c minix_source/usr/src/minix/servers/pm/schedule.c
 --- minix_original/usr/src/minix/servers/pm/schedule.c	2014-09-13 23:56:50.000000000 +0200
-+++ minix_source/usr/src/minix/servers/pm/schedule.c	2022-05-27 16:38:57.678499186 +0200
++++ minix_source/usr/src/minix/servers/pm/schedule.c	2022-05-28 12:40:44.467577844 +0200
 @@ -110,3 +110,46 @@ int sched_nice(struct mproc *rmp, int ni
  
  	return (OK);
@@ -174,10 +421,10 @@ diff -rupNEZbB minix_original/usr/src/minix/servers/pm/schedule.c minix_source/u
 +    }
 +
 +    /* check if the process is scheduled directly by the kernel */
-+    //TODO: pick one of these:
 +    if (rmp->mp_scheduler == KERNEL || rmp->mp_scheduler == NONE) {
 +        return (EPERM);
-+    }  
++    }
++	/* check if sched is actually the scheduler */
 +    if (rmp->mp_scheduler != SCHED_PROC_NR) {
 +        return (EPERM);
 +    }
@@ -253,18 +500,18 @@ diff -rupNEZbB minix_original/usr/src/minix/servers/sched/proto.h minix_source/u
  /* utility.c */
 diff -rupNEZbB minix_original/usr/src/minix/servers/sched/schedproc.h minix_source/usr/src/minix/servers/sched/schedproc.h
 --- minix_original/usr/src/minix/servers/sched/schedproc.h	2014-09-13 23:56:50.000000000 +0200
-+++ minix_source/usr/src/minix/servers/sched/schedproc.h	2022-05-23 12:23:49.734562860 +0200
++++ minix_source/usr/src/minix/servers/sched/schedproc.h	2022-05-28 16:05:28.199075124 +0200
 @@ -33,6 +33,7 @@ EXTERN struct schedproc {
  	bitchunk_t cpu_mask[BITMAP_CHUNKS(CONFIG_MAX_CPUS)]; /* what CPUs is the
  								process allowed
  								to run on */
-+	int bucket;
++	int bucket; /* bucket used in scheduling */
  } schedproc[NR_PROCS];
  
  /* Flag values */
 diff -rupNEZbB minix_original/usr/src/minix/servers/sched/schedule.c minix_source/usr/src/minix/servers/sched/schedule.c
 --- minix_original/usr/src/minix/servers/sched/schedule.c	2014-09-13 23:56:50.000000000 +0200
-+++ minix_source/usr/src/minix/servers/sched/schedule.c	2022-05-27 17:36:33.114110710 +0200
++++ minix_source/usr/src/minix/servers/sched/schedule.c	2022-05-28 15:36:32.861230581 +0200
 @@ -19,7 +19,7 @@ static unsigned balance_timeout;
  
  #define BALANCE_TIMEOUT	5 /* how often to balance queues in seconds */
@@ -336,7 +583,7 @@ diff -rupNEZbB minix_original/usr/src/minix/servers/sched/schedule.c minix_sourc
 +	// return rv;
 +
 +	/* `nice` shouldn't affect user processes at all */
-+	return 0; //TODO: co to ma zwracać?
++	return (ENOSYS);
 +}
 +
 +int do_set_bucket(message *m_ptr)
@@ -384,12 +631,3 @@ diff -rupNEZbB minix_original/usr/src/minix/servers/sched/schedule.c minix_sourc
  	}
  
  	return rv;
-@@ -305,7 +344,7 @@ static int schedule_process(struct sched
- 	pick_cpu(rmp);
- 
- 	if (flags & SCHEDULE_CHANGE_PRIO)
--		new_prio = rmp->priority;
-+		new_prio = (rmp->priority < LOWEST_BUCKET_Q)? rmp->priority : LOWEST_BUCKET_Q + rmp->bucket;
- 	else
- 		new_prio = -1;
- 

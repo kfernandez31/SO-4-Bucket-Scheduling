@@ -60,7 +60,7 @@ static int deadlock(int function, register struct proc *caller,
 static int try_async(struct proc *caller_ptr);
 static int try_one(struct proc *src_ptr, struct proc *dst_ptr);
 static struct proc * pick_proc(void); /* so_2022 */
-static void enqueue_head(struct proc *rp);
+static void enqueue_head(struct proc *rp); /* so_2022 */
 
 /* all idles share the same idle_priv structure */
 static struct priv idle_priv;
@@ -1535,7 +1535,7 @@ void enqueue(
  * This function can be used x-cpu as it always uses the queues of the cpu the
  * process is assigned to.
  */
-  int q = rp->p_priority;	 		/* scheduling queue to use */
+  int q = (rp->p_bucket != -1)? rp->p_priority : (LOWEST_BUCKET_Q + rp->p_bucket);	 		/* scheduling queue to use */
   struct proc **rdy_head, **rdy_tail;
   
   assert(proc_is_runnable(rp));
@@ -1600,7 +1600,7 @@ void enqueue(
  */
 static void enqueue_head(struct proc *rp)
 {
-  const int q = rp->p_priority;	 		/* scheduling queue to use */
+  const int q = (rp->p_bucket != -1)? rp->p_priority : (LOWEST_BUCKET_Q + rp->p_bucket);	 		/* scheduling queue to use */
 
   struct proc **rdy_head, **rdy_tail;
 
@@ -1654,7 +1654,7 @@ void dequeue(struct proc *rp)
  * This function can operate x-cpu as it always removes the process from the
  * queue of the cpu the process is currently assigned to.
  */
-  int q = rp->p_priority;		/* queue to use */
+  int q = (rp->p_bucket != -1)? rp->p_priority : (LOWEST_BUCKET_Q + rp->p_bucket);		/* queue to use */
   struct proc **xpp;			/* iterate over queue */
   struct proc *prev_xp;
   u64_t tsc, tsc_delta;
@@ -1713,7 +1713,7 @@ void dequeue(struct proc *rp)
  *===========================================================================*/
 static struct proc * pick_proc(void)
 {
-  static int prev_bucket = 0;
+  static int prev_bucket = -1;
 /* Decide who to run now.  A new process is selected an returned.
  * When a billable process is selected, record it in 'bill_ptr', so that the 
  * clock task can tell who to bill for system time.
@@ -1730,10 +1730,10 @@ static struct proc * pick_proc(void)
    */
   rdy_head = get_cpulocal_var(run_q_head);
   for (q=0; q < NR_SCHED_QUEUES; q++) {	
-    int bucket = prev_bucket + 1 + q - LOWEST_BUCKET_Q;
+    int bucket = (prev_bucket + 1) + (q - LOWEST_BUCKET_Q);
 	
 	int queue;
-	if (q >= LOWEST_BUCKET_Q && q < NR_SCHED_QUEUES - 1)
+	if (q >= LOWEST_BUCKET_Q && q < NR_SCHED_QUEUES)
 		queue = (bucket % NR_BUCKETS) + LOWEST_BUCKET_Q;
 	else
 		queue = q;
@@ -1745,7 +1745,7 @@ static struct proc * pick_proc(void)
     assert(proc_is_runnable(rp));
     if (priv(rp)->s_flags & BILLABLE)	 	
       get_cpulocal_var(bill_ptr) = rp; /* bill for system time */
-    /* if this was a user process, rememver its bucket */
+    /* if this was a user process, remember its bucket */
     if (q != queue) {
       prev_bucket = bucket;
     }

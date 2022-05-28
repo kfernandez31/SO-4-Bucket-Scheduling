@@ -621,7 +621,8 @@ void kernel_call_resume(struct proc *caller)
 int sched_proc(struct proc *p,
 			int priority,
 			int quantum,
-			int cpu)
+			int cpu,
+      int bucket)
 {
 	/* Make sure the values given are within the allowed range.*/
 	if ((priority < TASK_Q && priority != -1) || priority > NR_SCHED_QUEUES)
@@ -629,6 +630,9 @@ int sched_proc(struct proc *p,
 
 	if (quantum < 1 && quantum != -1)
 		return(EINVAL);
+
+  if (bucket != -1)
+    p->p_bucket = bucket;
 
 #ifdef CONFIG_SMP
 	if ((cpu < 0 && cpu != -1) || (cpu > 0 && (unsigned) cpu >= ncpus))

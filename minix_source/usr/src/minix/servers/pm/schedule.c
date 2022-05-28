@@ -124,7 +124,8 @@ int sched_set_bucket(struct mproc *rmp, int bucket_nr)
     /* check if the process is scheduled directly by the kernel */
     if (rmp->mp_scheduler == KERNEL || rmp->mp_scheduler == NONE) {
         return (EPERM);
-    }  
+    }
+	/* check if sched is actually the scheduler */
     if (rmp->mp_scheduler != SCHED_PROC_NR) {
         return (EPERM);
     }
