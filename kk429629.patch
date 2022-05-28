@@ -1,28 +1,3 @@
-diff -rupNEZbB minix_original/usr/include/minix/ipc.h minix_source/usr/include/minix/ipc.h
---- minix_original/usr/include/minix/ipc.h	2014-09-14 11:00:44.000000000 +0200
-+++ minix_source/usr/include/minix/ipc.h	2022-05-28 16:07:32.339748499 +0200
-@@ -978,8 +978,9 @@ typedef struct {
- 	int priority;
- 	int quantum;
- 	int cpu;
-+	int bucket;
- 
--	uint8_t padding[36];
-+	uint8_t padding[32];
- } mess_lsys_krn_schedctl;
- _ASSERT_MSG_SIZE(mess_lsys_krn_schedctl);
- 
-@@ -988,8 +989,9 @@ typedef struct {
- 	int quantum;
- 	int priority;
- 	int cpu;
-+	int bucket;
- 
--	uint8_t padding[40];
-+	uint8_t padding[36];
- } mess_lsys_krn_schedule;
- _ASSERT_MSG_SIZE(mess_lsys_krn_schedule);
- 
 diff -rupNEZbB minix_original/usr/include/minix/syslib.h minix_source/usr/include/minix/syslib.h
 --- minix_original/usr/include/minix/syslib.h	2014-09-14 11:00:44.000000000 +0200
 +++ minix_source/usr/include/minix/syslib.h	2022-05-28 15:39:41.971211182 +0200
@@ -118,8 +93,30 @@ diff -rupNEZbB minix_original/usr/src/minix/include/minix/config.h minix_source/
  /* default scheduling quanta */
 diff -rupNEZbB minix_original/usr/src/minix/include/minix/ipc.h minix_source/usr/src/minix/include/minix/ipc.h
 --- minix_original/usr/src/minix/include/minix/ipc.h	2014-09-13 23:56:50.000000000 +0200
-+++ minix_source/usr/src/minix/include/minix/ipc.h	2022-05-27 15:55:02.002731795 +0200
-@@ -1588,6 +1588,14 @@ typedef struct {
++++ minix_source/usr/src/minix/include/minix/ipc.h	2022-05-28 16:44:59.161757591 +0200
+@@ -978,8 +978,9 @@ typedef struct {
+ 	int priority;
+ 	int quantum;
+ 	int cpu;
++	int bucket;
+ 
+-	uint8_t padding[36];
++	uint8_t padding[32];
+ } mess_lsys_krn_schedctl;
+ _ASSERT_MSG_SIZE(mess_lsys_krn_schedctl);
+ 
+@@ -988,8 +989,9 @@ typedef struct {
+ 	int quantum;
+ 	int priority;
+ 	int cpu;
++	int bucket;
+ 
+-	uint8_t padding[40];
++	uint8_t padding[36];
+ } mess_lsys_krn_schedule;
+ _ASSERT_MSG_SIZE(mess_lsys_krn_schedule);
+ 
+@@ -1588,6 +1590,14 @@ typedef struct {
  _ASSERT_MSG_SIZE(mess_pm_sched_scheduling_set_nice);
  
  typedef struct {
@@ -134,7 +131,7 @@ diff -rupNEZbB minix_original/usr/src/minix/include/minix/ipc.h minix_source/usr
  	int status;
  
  	uint8_t padding[52];
-@@ -2208,6 +2216,7 @@ typedef struct {
+@@ -2208,6 +2218,7 @@ typedef struct {
  		mess_pm_lsys_getprocnr	m_pm_lsys_getprocnr;
  		mess_pm_lsys_sigs_signal m_pm_lsys_sigs_signal;
  		mess_pm_sched_scheduling_set_nice m_pm_sched_scheduling_set_nice;
