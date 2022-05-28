@@ -978,9 +978,8 @@ typedef struct {
 	int priority;
 	int quantum;
 	int cpu;
-	int bucket;
 
-	uint8_t padding[32];
+	uint8_t padding[36];
 } mess_lsys_krn_schedctl;
 _ASSERT_MSG_SIZE(mess_lsys_krn_schedctl);
 
@@ -989,9 +988,8 @@ typedef struct {
 	int quantum;
 	int priority;
 	int cpu;
-	int bucket;
 
-	uint8_t padding[36];
+	uint8_t padding[40];
 } mess_lsys_krn_schedule;
 _ASSERT_MSG_SIZE(mess_lsys_krn_schedule);
 
