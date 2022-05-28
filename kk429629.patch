@@ -72,8 +72,8 @@ diff -rupNEZbB minix_original/usr/src/minix/include/minix/com.h minix_source/usr
   *              Messages for USB                                             *
 diff -rupNEZbB minix_original/usr/src/minix/include/minix/config.h minix_source/usr/src/minix/include/minix/config.h
 --- minix_original/usr/src/minix/include/minix/config.h	2014-09-13 23:56:50.000000000 +0200
-+++ minix_source/usr/src/minix/include/minix/config.h	2022-05-28 08:29:12.392091421 +0200
-@@ -59,11 +59,13 @@
++++ minix_source/usr/src/minix/include/minix/config.h	2022-05-28 18:08:00.540751913 +0200
+@@ -59,12 +59,14 @@
  /* Scheduling priorities. Values must start at zero (highest
   * priority) and increment.
   */
@@ -86,11 +86,13 @@ diff -rupNEZbB minix_original/usr/src/minix/include/minix/config.h minix_source/
 -#define MAX_USER_Q  	   0    /* highest priority for user processes */   
 -#define USER_Q  	  ((MIN_USER_Q - MAX_USER_Q) / 2 + MAX_USER_Q) /* default
 -						(should correspond to nice 0) */
+-#define MIN_USER_Q	  (NR_SCHED_QUEUES - 1)	/* minimum priority for user
 +#define MAX_USER_Q	  LOWEST_BUCKET_Q    /* highest priority for user processes */   
 +#define USER_Q  	  LOWEST_BUCKET_Q
- #define MIN_USER_Q	  (NR_SCHED_QUEUES - 1)	/* minimum priority for user
++#define MIN_USER_Q	  (NR_SCHED_QUEUES - 2)	/* minimum priority for user
  						   processes */
  /* default scheduling quanta */
+ #define USER_QUANTUM 200
 diff -rupNEZbB minix_original/usr/src/minix/include/minix/ipc.h minix_source/usr/src/minix/include/minix/ipc.h
 --- minix_original/usr/src/minix/include/minix/ipc.h	2014-09-13 23:56:50.000000000 +0200
 +++ minix_source/usr/src/minix/include/minix/ipc.h	2022-05-28 16:44:59.161757591 +0200
@@ -156,7 +158,7 @@ diff -rupNEZbB minix_original/usr/src/minix/include/minix/syslib.h minix_source/
  #define sys_stop(proc_ep) sys_runctl(proc_ep, RC_STOP, 0)
 diff -rupNEZbB minix_original/usr/src/minix/kernel/proc.c minix_source/usr/src/minix/kernel/proc.c
 --- minix_original/usr/src/minix/kernel/proc.c	2014-09-13 23:56:50.000000000 +0200
-+++ minix_source/usr/src/minix/kernel/proc.c	2022-05-28 15:59:17.856941169 +0200
++++ minix_source/usr/src/minix/kernel/proc.c	2022-05-28 18:36:36.212457979 +0200
 @@ -59,8 +59,8 @@ static int deadlock(int function, regist
  	endpoint_t src_dst_e);
  static int try_async(struct proc *caller_ptr);
@@ -211,7 +213,7 @@ diff -rupNEZbB minix_original/usr/src/minix/kernel/proc.c minix_source/usr/src/m
 +    int bucket = (prev_bucket + 1) + (q - LOWEST_BUCKET_Q);
 +	
 +	int queue;
-+	if (q >= LOWEST_BUCKET_Q && q < NR_SCHED_QUEUES)
++	if (q >= LOWEST_BUCKET_Q && q < NR_SCHED_QUEUES - 1)
 +		queue = (bucket % NR_BUCKETS) + LOWEST_BUCKET_Q;
 +	else
 +		queue = q;
@@ -232,15 +234,15 @@ diff -rupNEZbB minix_original/usr/src/minix/kernel/proc.c minix_source/usr/src/m
    return NULL;
 diff -rupNEZbB minix_original/usr/src/minix/kernel/proc.h minix_source/usr/src/minix/kernel/proc.h
 --- minix_original/usr/src/minix/kernel/proc.h	2014-09-13 23:56:50.000000000 +0200
-+++ minix_source/usr/src/minix/kernel/proc.h	2022-05-28 16:05:08.812298410 +0200
-@@ -20,6 +20,7 @@
- #include "priv.h"
++++ minix_source/usr/src/minix/kernel/proc.h	2022-05-28 17:16:09.962614996 +0200
+@@ -28,6 +28,7 @@ struct proc {
+   volatile u32_t p_misc_flags;	/* flags that do not suspend the process */
  
- struct proc {
+   char p_priority;		/* current process priority */
 +  int p_bucket; /* bucket used in scheduling */
-   struct stackframe_s p_reg;	/* process' registers saved in stack frame */
-   struct segframe p_seg;	/* segment descriptors */
-   proc_nr_t p_nr;		/* number of this process (for fast access) */
+   u64_t p_cpu_time_left;	/* time left to use the cpu */
+   unsigned p_quantum_size_ms;	/* assigned time quantum in ms
+ 				   FIXME remove this */
 diff -rupNEZbB minix_original/usr/src/minix/kernel/proto.h minix_source/usr/src/minix/kernel/proto.h
 --- minix_original/usr/src/minix/kernel/proto.h	2014-09-13 23:56:50.000000000 +0200
 +++ minix_source/usr/src/minix/kernel/proto.h	2022-05-28 16:00:21.963797556 +0200
@@ -346,6 +348,18 @@ diff -rupNEZbB minix_original/usr/src/minix/kernel/system.h minix_source/usr/src
  
  int do_statectl(struct proc * caller, message *m_ptr);
  #if ! USE_STATECTL
+diff -rupNEZbB minix_original/usr/src/minix/lib/libsys/sched_start.c minix_source/usr/src/minix/lib/libsys/sched_start.c
+--- minix_original/usr/src/minix/lib/libsys/sched_start.c	2014-09-13 23:56:50.000000000 +0200
++++ minix_source/usr/src/minix/lib/libsys/sched_start.c	2022-05-28 16:58:05.596187734 +0200
+@@ -73,7 +73,7 @@ int sched_start(endpoint_t scheduler_e,
+ 	/* The KERNEL must schedule this process. */
+ 	if(scheduler_e == KERNEL) {
+ 		if ((rv = sys_schedctl(SCHEDCTL_FLAG_KERNEL, 
+-			schedulee_e, maxprio, quantum, cpu)) != OK) {
++			schedulee_e, maxprio, quantum, cpu, -1)) != OK) {
+ 			return rv;
+ 		}
+ 		*newscheduler_e = scheduler_e;
 diff -rupNEZbB minix_original/usr/src/minix/lib/libsys/sys_schedctl.c minix_source/usr/src/minix/lib/libsys/sys_schedctl.c
 --- minix_original/usr/src/minix/lib/libsys/sys_schedctl.c	2014-09-13 23:56:50.000000000 +0200
 +++ minix_source/usr/src/minix/lib/libsys/sys_schedctl.c	2022-05-28 15:41:52.881309919 +0200
@@ -497,19 +511,19 @@ diff -rupNEZbB minix_original/usr/src/minix/servers/sched/proto.h minix_source/u
  /* utility.c */
 diff -rupNEZbB minix_original/usr/src/minix/servers/sched/schedproc.h minix_source/usr/src/minix/servers/sched/schedproc.h
 --- minix_original/usr/src/minix/servers/sched/schedproc.h	2014-09-13 23:56:50.000000000 +0200
-+++ minix_source/usr/src/minix/servers/sched/schedproc.h	2022-05-28 16:05:28.199075124 +0200
-@@ -33,6 +33,7 @@ EXTERN struct schedproc {
++++ minix_source/usr/src/minix/servers/sched/schedproc.h	2022-05-28 17:18:01.679126039 +0200
+@@ -28,6 +28,7 @@ EXTERN struct schedproc {
+ 	/* User space scheduling */
+ 	unsigned max_priority;	/* this process' highest allowed priority */
+ 	unsigned priority;		/* the process' current priority */
++	int bucket; /* the process' bucket used in scheduling */
+ 	unsigned time_slice;		/* this process's time slice */
+ 	unsigned cpu;		/* what CPU is the process running on */
  	bitchunk_t cpu_mask[BITMAP_CHUNKS(CONFIG_MAX_CPUS)]; /* what CPUs is the
- 								process allowed
- 								to run on */
-+	int bucket; /* bucket used in scheduling */
- } schedproc[NR_PROCS];
- 
- /* Flag values */
 diff -rupNEZbB minix_original/usr/src/minix/servers/sched/schedule.c minix_source/usr/src/minix/servers/sched/schedule.c
 --- minix_original/usr/src/minix/servers/sched/schedule.c	2014-09-13 23:56:50.000000000 +0200
-+++ minix_source/usr/src/minix/servers/sched/schedule.c	2022-05-28 15:36:32.861230581 +0200
-@@ -19,7 +19,7 @@ static unsigned balance_timeout;
++++ minix_source/usr/src/minix/servers/sched/schedule.c	2022-05-28 18:25:27.800545008 +0200
+@@ -19,23 +19,25 @@ static unsigned balance_timeout;
  
  #define BALANCE_TIMEOUT	5 /* how often to balance queues in seconds */
  
@@ -518,7 +532,28 @@ diff -rupNEZbB minix_original/usr/src/minix/servers/sched/schedule.c minix_sourc
  static void balance_queues(minix_timer_t *tp);
  
  #define SCHEDULE_CHANGE_PRIO	0x1
-@@ -200,15 +200,16 @@ int do_start_scheduling(message *m_ptr)
+ #define SCHEDULE_CHANGE_QUANTUM	0x2
+ #define SCHEDULE_CHANGE_CPU	0x4
++#define SCHEDULE_CHANGE_BUCKET	0x8
+ 
+ #define SCHEDULE_CHANGE_ALL	(	\
+ 		SCHEDULE_CHANGE_PRIO	|	\
+ 		SCHEDULE_CHANGE_QUANTUM	|	\
+-		SCHEDULE_CHANGE_CPU		\
++		SCHEDULE_CHANGE_CPU		|   \
++		SCHEDULE_CHANGE_BUCKET \
+ 		)
+ 
+ #define schedule_process_local(p)	\
+-	schedule_process(p, SCHEDULE_CHANGE_PRIO | SCHEDULE_CHANGE_QUANTUM)
++	schedule_process(p, SCHEDULE_CHANGE_PRIO | SCHEDULE_CHANGE_QUANTUM | SCHEDULE_CHANGE_BUCKET)
+ #define schedule_process_migrate(p)	\
+-	schedule_process(p, SCHEDULE_CHANGE_CPU)
++	schedule_process(p, SCHEDULE_CHANGE_CPU | SCHEDULE_CHANGE_BUCKET)
+ 
+ #define CPU_DEAD	-1
+ 
+@@ -200,15 +202,16 @@ int do_start_scheduling(message *m_ptr)
  		break;
  		
  	case SCHEDULING_INHERIT:
@@ -538,7 +573,16 @@ diff -rupNEZbB minix_original/usr/src/minix/servers/sched/schedule.c minix_sourc
  		break;
  		
  	default: 
-@@ -256,39 +257,77 @@ int do_start_scheduling(message *m_ptr)
+@@ -218,7 +221,7 @@ int do_start_scheduling(message *m_ptr)
+ 
+ 	/* Take over scheduling the process. The kernel reply message populates
+ 	 * the processes current priority and its time slice */
+-	if ((rv = sys_schedctl(0, rmp->endpoint, 0, 0, 0)) != OK) {
++	if ((rv = sys_schedctl(0, rmp->endpoint, 0, 0, 0, -1)) != OK) {
+ 		printf("Sched: Error taking over scheduling for %d, kernel said %d\n",
+ 			rmp->endpoint, rv);
+ 		return rv;
+@@ -256,39 +259,77 @@ int do_start_scheduling(message *m_ptr)
   *===========================================================================*/
  int do_nice(message *m_ptr)
  {
@@ -628,3 +672,27 @@ diff -rupNEZbB minix_original/usr/src/minix/servers/sched/schedule.c minix_sourc
  	}
  
  	return rv;
+@@ -300,7 +341,7 @@ int do_nice(message *m_ptr)
+ static int schedule_process(struct schedproc * rmp, unsigned flags)
+ {
+ 	int err;
+-	int new_prio, new_quantum, new_cpu;
++	int new_prio, new_quantum, new_cpu, new_bucket;
+ 
+ 	pick_cpu(rmp);
+ 
+@@ -319,8 +360,13 @@ static int schedule_process(struct sched
+ 	else
+ 		new_cpu = -1;
+ 
++	if (flags & SCHEDULE_CHANGE_BUCKET)
++		new_cpu = rmp->bucket;
++	else
++		new_cpu = -1;
++
+ 	if ((err = sys_schedule(rmp->endpoint, new_prio,
+-		new_quantum, new_cpu)) != OK) {
++		new_quantum, new_cpu, new_bucket)) != OK) {
+ 		printf("PM: An error occurred when trying to schedule %d: %d\n",
+ 		rmp->endpoint, err);
+ 	}

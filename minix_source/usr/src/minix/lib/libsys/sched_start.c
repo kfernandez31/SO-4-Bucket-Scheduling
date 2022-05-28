@@ -73,7 +73,7 @@ int sched_start(endpoint_t scheduler_e,
 	/* The KERNEL must schedule this process. */
 	if(scheduler_e == KERNEL) {
 		if ((rv = sys_schedctl(SCHEDCTL_FLAG_KERNEL, 
-			schedulee_e, maxprio, quantum, cpu)) != OK) {
+			schedulee_e, maxprio, quantum, cpu, -1)) != OK) {
 			return rv;
 		}
 		*newscheduler_e = scheduler_e;

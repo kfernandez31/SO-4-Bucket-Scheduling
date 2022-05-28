@@ -20,7 +20,6 @@
 #include "priv.h"
 
 struct proc {
-  int p_bucket; /* bucket used in scheduling */
   struct stackframe_s p_reg;	/* process' registers saved in stack frame */
   struct segframe p_seg;	/* segment descriptors */
   proc_nr_t p_nr;		/* number of this process (for fast access) */
@@ -29,6 +28,7 @@ struct proc {
   volatile u32_t p_misc_flags;	/* flags that do not suspend the process */
 
   char p_priority;		/* current process priority */
+  int p_bucket; /* bucket used in scheduling */
   u64_t p_cpu_time_left;	/* time left to use the cpu */
   unsigned p_quantum_size_ms;	/* assigned time quantum in ms
 				   FIXME remove this */

@@ -66,7 +66,7 @@
 #define TASK_Q		   0	/* highest, used for kernel tasks */
 #define MAX_USER_Q	  LOWEST_BUCKET_Q    /* highest priority for user processes */   
 #define USER_Q  	  LOWEST_BUCKET_Q
-#define MIN_USER_Q	  (NR_SCHED_QUEUES - 1)	/* minimum priority for user
+#define MIN_USER_Q	  (NR_SCHED_QUEUES - 2)	/* minimum priority for user
 						   processes */
 /* default scheduling quanta */
 #define USER_QUANTUM 200

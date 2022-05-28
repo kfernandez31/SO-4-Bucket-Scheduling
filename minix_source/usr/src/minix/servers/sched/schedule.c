@@ -25,17 +25,19 @@ static void balance_queues(minix_timer_t *tp);
 #define SCHEDULE_CHANGE_PRIO	0x1
 #define SCHEDULE_CHANGE_QUANTUM	0x2
 #define SCHEDULE_CHANGE_CPU	0x4
+#define SCHEDULE_CHANGE_BUCKET	0x8
 
 #define SCHEDULE_CHANGE_ALL	(	\
 		SCHEDULE_CHANGE_PRIO	|	\
 		SCHEDULE_CHANGE_QUANTUM	|	\
-		SCHEDULE_CHANGE_CPU		\
+		SCHEDULE_CHANGE_CPU		|   \
+		SCHEDULE_CHANGE_BUCKET \
 		)
 
 #define schedule_process_local(p)	\
-	schedule_process(p, SCHEDULE_CHANGE_PRIO | SCHEDULE_CHANGE_QUANTUM)
+	schedule_process(p, SCHEDULE_CHANGE_PRIO | SCHEDULE_CHANGE_QUANTUM | SCHEDULE_CHANGE_BUCKET)
 #define schedule_process_migrate(p)	\
-	schedule_process(p, SCHEDULE_CHANGE_CPU)
+	schedule_process(p, SCHEDULE_CHANGE_CPU | SCHEDULE_CHANGE_BUCKET)
 
 #define CPU_DEAD	-1
 
@@ -219,7 +221,7 @@ int do_start_scheduling(message *m_ptr)
 
 	/* Take over scheduling the process. The kernel reply message populates
 	 * the processes current priority and its time slice */
-	if ((rv = sys_schedctl(0, rmp->endpoint, 0, 0, 0)) != OK) {
+	if ((rv = sys_schedctl(0, rmp->endpoint, 0, 0, 0, -1)) != OK) {
 		printf("Sched: Error taking over scheduling for %d, kernel said %d\n",
 			rmp->endpoint, rv);
 		return rv;
@@ -339,7 +341,7 @@ int do_set_bucket(message *m_ptr)
 static int schedule_process(struct schedproc * rmp, unsigned flags)
 {
 	int err;
-	int new_prio, new_quantum, new_cpu;
+	int new_prio, new_quantum, new_cpu, new_bucket;
 
 	pick_cpu(rmp);
 
@@ -358,8 +360,13 @@ static int schedule_process(struct schedproc * rmp, unsigned flags)
 	else
 		new_cpu = -1;
 
+	if (flags & SCHEDULE_CHANGE_BUCKET)
+		new_cpu = rmp->bucket;
+	else
+		new_cpu = -1;
+
 	if ((err = sys_schedule(rmp->endpoint, new_prio,
-		new_quantum, new_cpu)) != OK) {
+		new_quantum, new_cpu, new_bucket)) != OK) {
 		printf("PM: An error occurred when trying to schedule %d: %d\n",
 		rmp->endpoint, err);
 	}

@@ -1733,7 +1733,7 @@ static struct proc * pick_proc(void)
     int bucket = (prev_bucket + 1) + (q - LOWEST_BUCKET_Q);
 	
 	int queue;
-	if (q >= LOWEST_BUCKET_Q && q < NR_SCHED_QUEUES)
+	if (q >= LOWEST_BUCKET_Q && q < NR_SCHED_QUEUES - 1)
 		queue = (bucket % NR_BUCKETS) + LOWEST_BUCKET_Q;
 	else
 		queue = q;
