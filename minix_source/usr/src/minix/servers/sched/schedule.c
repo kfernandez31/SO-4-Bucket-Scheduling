@@ -20,7 +20,7 @@ static unsigned balance_timeout;
 #define BALANCE_TIMEOUT	5 /* how often to balance queues in seconds */
 
 static int schedule_process(struct schedproc * rmp, unsigned flags); /* so_2022 */
-static void balance_queues(minix_timer_t *tp);
+static void balance_queues(minix_timer_t *tp); /* so_2022 */
 
 #define SCHEDULE_CHANGE_PRIO	0x1
 #define SCHEDULE_CHANGE_QUANTUM	0x2
@@ -178,6 +178,7 @@ int do_start_scheduling(message *m_ptr)
 		   process scheduled, and the parent of itself. */
 		rmp->priority   = USER_Q;
 		rmp->time_slice = DEFAULT_USER_TIME_SLICE;
+		rmp->bucket = schedproc[parent_nr_n].bucket;
 
 		/*
 		 * Since kernel never changes the cpu of a process, all are
@@ -199,6 +200,7 @@ int do_start_scheduling(message *m_ptr)
 		 * from the parent */
 		rmp->priority   = rmp->max_priority;
 		rmp->time_slice = m_ptr->m_lsys_sched_scheduling_start.quantum;
+		rmp->bucket = INIT_BUCKET;
 		break;
 		
 	case SCHEDULING_INHERIT:
@@ -361,9 +363,9 @@ static int schedule_process(struct schedproc * rmp, unsigned flags)
 		new_cpu = -1;
 
 	if (flags & SCHEDULE_CHANGE_BUCKET)
-		new_cpu = rmp->bucket;
+		new_bucket = rmp->bucket;
 	else
-		new_cpu = -1;
+		new_bucket = -1;
 
 	if ((err = sys_schedule(rmp->endpoint, new_prio,
 		new_quantum, new_cpu, new_bucket)) != OK) {
@@ -381,9 +383,9 @@ static int schedule_process(struct schedproc * rmp, unsigned flags)
 
 void init_scheduling(void)
 {
-	balance_timeout = BALANCE_TIMEOUT * sys_hz();
-	init_timer(&sched_timer);
-	set_timer(&sched_timer, balance_timeout, balance_queues, 0);
+	// balance_timeout = BALANCE_TIMEOUT * sys_hz();
+	// init_timer(&sched_timer);
+	// set_timer(&sched_timer, balance_timeout, balance_queues, 0);
 }
 
 /*===========================================================================*
@@ -397,17 +399,17 @@ void init_scheduling(void)
  */
 static void balance_queues(minix_timer_t *tp)
 {
-	struct schedproc *rmp;
-	int proc_nr;
+	// struct schedproc *rmp;
+	// int proc_nr;
 
-	for (proc_nr=0, rmp=schedproc; proc_nr < NR_PROCS; proc_nr++, rmp++) {
-		if (rmp->flags & IN_USE) {
-			if (rmp->priority > rmp->max_priority) {
-				rmp->priority -= 1; /* increase priority */
-				schedule_process_local(rmp);
-			}
-		}
-	}
+	// for (proc_nr=0, rmp=schedproc; proc_nr < NR_PROCS; proc_nr++, rmp++) {
+	// 	if (rmp->flags & IN_USE) {
+	// 		if (rmp->priority > rmp->max_priority) {
+	// 			rmp->priority -= 1; /* increase priority */
+	// 			schedule_process_local(rmp);
+	// 		}
+	// 	}
+	// }
 
-	set_timer(&sched_timer, balance_timeout, balance_queues, 0);
+	// set_timer(&sched_timer, balance_timeout, balance_queues, 0);
 }

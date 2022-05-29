@@ -13,7 +13,7 @@ int do_start_scheduling(message *m_ptr); /* so_2022 */
 int do_stop_scheduling(message *m_ptr);
 int do_nice(message *m_ptr); /* so_2022 */
 int do_set_bucket(message *m_ptr); /* so_2022 */
-void init_scheduling(void);
+void init_scheduling(void); /* so_2022 */
 
 /* utility.c */
 int no_sys(int who_e, int call_nr);
