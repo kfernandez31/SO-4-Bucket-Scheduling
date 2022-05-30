@@ -1538,7 +1538,8 @@ void enqueue(
   int q;
   if (LOWEST_BUCKET_Q <= rp->p_priority && rp->p_priority < NR_SCHED_QUEUES - 1) {
 	  q = LOWEST_BUCKET_Q + rp->p_bucket;
-	  //printf("(KERNEL, enqueue) ZMIENIONO[p_nr: %d, p_bucket: %d, p_priority: %d, q: %d]", rp->p_nr, rp->p_bucket, rp->p_priority, q);
+	  //if (q == 8)
+	 	 //printf("(KERNEL, enqueue) ZMIENIONO[p_bucket: %d, p_priority: %d]", rp->p_bucket, rp->p_priority);
   }
   else {
 	  q = rp->p_priority;
@@ -1611,12 +1612,12 @@ static void enqueue_head(struct proc *rp)
   int q;
   if (LOWEST_BUCKET_Q <= rp->p_priority && rp->p_priority < NR_SCHED_QUEUES - 1) {
 	  q = LOWEST_BUCKET_Q + rp->p_bucket;
-	  //, enqueue_head) ZMIENIONO[p_nr: %d, p_bucket: %d, p_priority: %d, q: %d]", rp->p_nr, rp->p_bucket, rp->p_priority, q);
+	  //if (q == 8)
+	 	 //printf("(KERNEL, enqueue) ZMIENIONO[p_bucket: %d, p_priority: %d]", rp->p_bucket, rp->p_priority);
   }
   else {
 	  q = rp->p_priority;
   }
-
   struct proc **rdy_head, **rdy_tail;
 
   assert(proc_ptr_ok(rp));
@@ -1669,7 +1670,16 @@ void dequeue(struct proc *rp)
  * This function can operate x-cpu as it always removes the process from the
  * queue of the cpu the process is currently assigned to.
  */
-  int q = (LOWEST_BUCKET_Q <= rp->p_priority && rp->p_priority < NR_SCHED_QUEUES - 1)? (LOWEST_BUCKET_Q + rp->p_bucket) : rp->p_priority;	 		/* scheduling queue to use */
+  int q;
+  if (LOWEST_BUCKET_Q <= rp->p_priority && rp->p_priority < NR_SCHED_QUEUES - 1) {
+	  q = LOWEST_BUCKET_Q + rp->p_bucket;
+	  //if (q == 8)
+	 	 //printf("(KERNEL, enqueue) ZMIENIONO[p_bucket: %d, p_priority: %d]", rp->p_bucket, rp->p_priority);
+  }
+  else {
+	  q = rp->p_priority;
+  }
+
   struct proc **xpp;			/* iterate over queue */
   struct proc *prev_xp;
   u64_t tsc, tsc_delta;
@@ -1723,10 +1733,10 @@ void dequeue(struct proc *rp)
 #endif
 }
 
-static int prev_bucket = -1;
 /*===========================================================================*
  *				pick_proc				     * 
  *===========================================================================*/
+static int next_bucket;
 static struct proc * pick_proc(void)
 {
 /* Decide who to run now.  A new process is selected an returned.
@@ -1744,29 +1754,31 @@ static struct proc * pick_proc(void)
    * If there are no processes ready to run, return NULL.
    */
   rdy_head = get_cpulocal_var(run_q_head);
-  for (q=0; q < NR_SCHED_QUEUES; q++) {	
-    int bucket = (prev_bucket + 1) + (q - LOWEST_BUCKET_Q);
-	
-	int queue;
-	if (q >= LOWEST_BUCKET_Q && q < NR_SCHED_QUEUES - 1)
-		queue = (bucket % NR_BUCKETS) + LOWEST_BUCKET_Q;
-	else
-		queue = q;
-
-    if(!(rp = rdy_head[queue])) {
+  for (q=0; q < LOWEST_BUCKET_Q; q++) {		
+    if(!(rp = rdy_head[q])) {
       TRACE(VF_PICKPROC, printf("cpu %d queue %d empty\n", cpuid, q););
       continue;
     }
     assert(proc_is_runnable(rp));
     if (priv(rp)->s_flags & BILLABLE)	 	
       get_cpulocal_var(bill_ptr) = rp; /* bill for system time */
-    /* if this was a user process, remember its bucket */
-    if (q != queue) {
-	  printf("(KERNEL) ZMIENIONO[prev_bucket: %d, bucket: %d]\n", prev_bucket, bucket);
-      prev_bucket = bucket;
-    }
     return rp;
   }
+
+  for (int i = 0; i < NR_BUCKETS; i++) {
+	q = next_bucket + LOWEST_BUCKET_Q;
+	next_bucket = (next_bucket + 1) % NR_BUCKETS;
+	if(!(rp = rdy_head[q])) {
+		TRACE(VF_PICKPROC, printf("cpu %d queue %d empty\n", cpuid, q););
+		continue;
+	}
+	assert(proc_is_runnable(rp));
+    if (priv(rp)->s_flags & BILLABLE)	 	
+      get_cpulocal_var(bill_ptr) = rp; /* bill for system time */
+	//if (q > 7) printf("[PICKPROC] q: %d, next_bucket: %d\n", q, next_bucket);
+    return rp;
+  }
+
   return NULL;
 }
 

@@ -132,7 +132,6 @@ int sched_set_bucket(struct mproc *rmp, int bucket_nr)
 
     m.m_pm_sched_scheduling_set_bucket.endpoint	= rmp->mp_endpoint;
 	m.m_pm_sched_scheduling_set_bucket.bucket	= bucket_nr;
-	printf("(PM) ZMIENIONO[pid: %d, bucket: %d, nice: %d]\n", rmp->mp_pid, bucket_nr, rmp->mp_nice);
 	if ((rv = _taskcall(rmp->mp_scheduler, SCHEDULING_SET_BUCKET, &m))) {
 		return rv;
 	}
