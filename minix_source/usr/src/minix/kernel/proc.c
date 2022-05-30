@@ -1538,8 +1538,6 @@ void enqueue(
   int q;
   if (LOWEST_BUCKET_Q <= rp->p_priority && rp->p_priority < NR_SCHED_QUEUES - 1) {
 	  q = LOWEST_BUCKET_Q + rp->p_bucket;
-	  //if (q == 8)
-	 	 //printf("(KERNEL, enqueue) ZMIENIONO[p_bucket: %d, p_priority: %d]", rp->p_bucket, rp->p_priority);
   }
   else {
 	  q = rp->p_priority;
@@ -1612,8 +1610,6 @@ static void enqueue_head(struct proc *rp)
   int q;
   if (LOWEST_BUCKET_Q <= rp->p_priority && rp->p_priority < NR_SCHED_QUEUES - 1) {
 	  q = LOWEST_BUCKET_Q + rp->p_bucket;
-	  //if (q == 8)
-	 	 //printf("(KERNEL, enqueue) ZMIENIONO[p_bucket: %d, p_priority: %d]", rp->p_bucket, rp->p_priority);
   }
   else {
 	  q = rp->p_priority;
@@ -1673,8 +1669,6 @@ void dequeue(struct proc *rp)
   int q;
   if (LOWEST_BUCKET_Q <= rp->p_priority && rp->p_priority < NR_SCHED_QUEUES - 1) {
 	  q = LOWEST_BUCKET_Q + rp->p_bucket;
-	  //if (q == 8)
-	 	 //printf("(KERNEL, enqueue) ZMIENIONO[p_bucket: %d, p_priority: %d]", rp->p_bucket, rp->p_priority);
   }
   else {
 	  q = rp->p_priority;
@@ -1775,7 +1769,6 @@ static struct proc * pick_proc(void)
 	assert(proc_is_runnable(rp));
     if (priv(rp)->s_flags & BILLABLE)	 	
       get_cpulocal_var(bill_ptr) = rp; /* bill for system time */
-	//if (q > 7) printf("[PICKPROC] q: %d, next_bucket: %d\n", q, next_bucket);
     return rp;
   }
 

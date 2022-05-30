@@ -158,7 +158,7 @@ diff -rupNEZbB minix_original/usr/src/minix/include/minix/syslib.h minix_source/
  #define sys_stop(proc_ep) sys_runctl(proc_ep, RC_STOP, 0)
 diff -rupNEZbB minix_original/usr/src/minix/kernel/proc.c minix_source/usr/src/minix/kernel/proc.c
 --- minix_original/usr/src/minix/kernel/proc.c	2014-09-13 23:56:50.000000000 +0200
-+++ minix_source/usr/src/minix/kernel/proc.c	2022-05-30 13:19:36.914138397 +0200
++++ minix_source/usr/src/minix/kernel/proc.c	2022-05-30 16:40:11.654600901 +0200
 @@ -59,8 +59,8 @@ static int deadlock(int function, regist
  	endpoint_t src_dst_e);
  static int try_async(struct proc *caller_ptr);
@@ -170,7 +170,7 @@ diff -rupNEZbB minix_original/usr/src/minix/kernel/proc.c minix_source/usr/src/m
  
  /* all idles share the same idle_priv structure */
  static struct priv idle_priv;
-@@ -1535,7 +1535,16 @@ void enqueue(
+@@ -1535,7 +1535,14 @@ void enqueue(
   * This function can be used x-cpu as it always uses the queues of the cpu the
   * process is assigned to.
   */
@@ -178,8 +178,6 @@ diff -rupNEZbB minix_original/usr/src/minix/kernel/proc.c minix_source/usr/src/m
 +  int q;
 +  if (LOWEST_BUCKET_Q <= rp->p_priority && rp->p_priority < NR_SCHED_QUEUES - 1) {
 +	  q = LOWEST_BUCKET_Q + rp->p_bucket;
-+	  //if (q == 8)
-+	 	 //printf("(KERNEL, enqueue) ZMIENIONO[p_bucket: %d, p_priority: %d]", rp->p_bucket, rp->p_priority);
 +  }
 +  else {
 +	  q = rp->p_priority;
@@ -188,7 +186,7 @@ diff -rupNEZbB minix_original/usr/src/minix/kernel/proc.c minix_source/usr/src/m
    struct proc **rdy_head, **rdy_tail;
    
    assert(proc_is_runnable(rp));
-@@ -1600,8 +1609,15 @@ void enqueue(
+@@ -1600,8 +1607,13 @@ void enqueue(
   */
  static void enqueue_head(struct proc *rp)
  {
@@ -197,8 +195,6 @@ diff -rupNEZbB minix_original/usr/src/minix/kernel/proc.c minix_source/usr/src/m
 +  int q;
 +  if (LOWEST_BUCKET_Q <= rp->p_priority && rp->p_priority < NR_SCHED_QUEUES - 1) {
 +	  q = LOWEST_BUCKET_Q + rp->p_bucket;
-+	  //if (q == 8)
-+	 	 //printf("(KERNEL, enqueue) ZMIENIONO[p_bucket: %d, p_priority: %d]", rp->p_bucket, rp->p_priority);
 +  }
 +  else {
 +	  q = rp->p_priority;
@@ -206,7 +202,7 @@ diff -rupNEZbB minix_original/usr/src/minix/kernel/proc.c minix_source/usr/src/m
    struct proc **rdy_head, **rdy_tail;
  
    assert(proc_ptr_ok(rp));
-@@ -1654,7 +1670,16 @@ void dequeue(struct proc *rp)
+@@ -1654,7 +1666,14 @@ void dequeue(struct proc *rp)
   * This function can operate x-cpu as it always removes the process from the
   * queue of the cpu the process is currently assigned to.
   */
@@ -214,8 +210,6 @@ diff -rupNEZbB minix_original/usr/src/minix/kernel/proc.c minix_source/usr/src/m
 +  int q;
 +  if (LOWEST_BUCKET_Q <= rp->p_priority && rp->p_priority < NR_SCHED_QUEUES - 1) {
 +	  q = LOWEST_BUCKET_Q + rp->p_bucket;
-+	  //if (q == 8)
-+	 	 //printf("(KERNEL, enqueue) ZMIENIONO[p_bucket: %d, p_priority: %d]", rp->p_bucket, rp->p_priority);
 +  }
 +  else {
 +	  q = rp->p_priority;
@@ -224,7 +218,7 @@ diff -rupNEZbB minix_original/usr/src/minix/kernel/proc.c minix_source/usr/src/m
    struct proc **xpp;			/* iterate over queue */
    struct proc *prev_xp;
    u64_t tsc, tsc_delta;
-@@ -1711,6 +1736,7 @@ void dequeue(struct proc *rp)
+@@ -1711,6 +1730,7 @@ void dequeue(struct proc *rp)
  /*===========================================================================*
   *				pick_proc				     * 
   *===========================================================================*/
@@ -232,7 +226,7 @@ diff -rupNEZbB minix_original/usr/src/minix/kernel/proc.c minix_source/usr/src/m
  static struct proc * pick_proc(void)
  {
  /* Decide who to run now.  A new process is selected an returned.
-@@ -1728,7 +1754,7 @@ static struct proc * pick_proc(void)
+@@ -1728,7 +1748,7 @@ static struct proc * pick_proc(void)
     * If there are no processes ready to run, return NULL.
     */
    rdy_head = get_cpulocal_var(run_q_head);
@@ -241,7 +235,7 @@ diff -rupNEZbB minix_original/usr/src/minix/kernel/proc.c minix_source/usr/src/m
  	if(!(rp = rdy_head[q])) {
  		TRACE(VF_PICKPROC, printf("cpu %d queue %d empty\n", cpuid, q););
  		continue;
-@@ -1738,6 +1764,21 @@ static struct proc * pick_proc(void)
+@@ -1738,6 +1758,20 @@ static struct proc * pick_proc(void)
  		get_cpulocal_var(bill_ptr) = rp; /* bill for system time */
  	return rp;
    }
@@ -256,7 +250,6 @@ diff -rupNEZbB minix_original/usr/src/minix/kernel/proc.c minix_source/usr/src/m
 +	assert(proc_is_runnable(rp));
 +    if (priv(rp)->s_flags & BILLABLE)	 	
 +      get_cpulocal_var(bill_ptr) = rp; /* bill for system time */
-+	//if (q > 7) printf("[PICKPROC] q: %d, next_bucket: %d\n", q, next_bucket);
 +    return rp;
 +  }
 +
