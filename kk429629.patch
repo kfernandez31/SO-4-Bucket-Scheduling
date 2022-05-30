@@ -72,7 +72,7 @@ diff -rupNEZbB minix_original/usr/src/minix/include/minix/com.h minix_source/usr
   *              Messages for USB                                             *
 diff -rupNEZbB minix_original/usr/src/minix/include/minix/config.h minix_source/usr/src/minix/include/minix/config.h
 --- minix_original/usr/src/minix/include/minix/config.h	2014-09-13 23:56:50.000000000 +0200
-+++ minix_source/usr/src/minix/include/minix/config.h	2022-05-30 13:08:48.134056814 +0200
++++ minix_source/usr/src/minix/include/minix/config.h	2022-05-30 13:49:57.612419017 +0200
 @@ -59,11 +59,15 @@
  /* Scheduling priorities. Values must start at zero (highest
   * priority) and increment.
@@ -520,7 +520,7 @@ diff -rupNEZbB minix_original/usr/src/minix/servers/sched/main.c minix_source/us
  			if (IPC_STATUS_FLAGS_TEST(ipc_status,
 diff -rupNEZbB minix_original/usr/src/minix/servers/sched/proto.h minix_source/usr/src/minix/servers/sched/proto.h
 --- minix_original/usr/src/minix/servers/sched/proto.h	2014-09-13 23:56:50.000000000 +0200
-+++ minix_source/usr/src/minix/servers/sched/proto.h	2022-05-29 17:35:17.224084541 +0200
++++ minix_source/usr/src/minix/servers/sched/proto.h	2022-05-30 13:45:48.011039845 +0200
 @@ -4,15 +4,16 @@ struct schedproc;
  #include <minix/timers.h>
  
@@ -530,8 +530,9 @@ diff -rupNEZbB minix_original/usr/src/minix/servers/sched/proto.h minix_source/u
  void setreply(int proc_nr, int result);
  
  /* schedule.c */
- int do_noquantum(message *m_ptr);
+-int do_noquantum(message *m_ptr);
 -int do_start_scheduling(message *m_ptr);
++int do_noquantum(message *m_ptr); /* so_2022 */
 +int do_start_scheduling(message *m_ptr); /* so_2022 */
  int do_stop_scheduling(message *m_ptr);
 -int do_nice(message *m_ptr);
@@ -555,7 +556,7 @@ diff -rupNEZbB minix_original/usr/src/minix/servers/sched/schedproc.h minix_sour
  	bitchunk_t cpu_mask[BITMAP_CHUNKS(CONFIG_MAX_CPUS)]; /* what CPUs is the
 diff -rupNEZbB minix_original/usr/src/minix/servers/sched/schedule.c minix_source/usr/src/minix/servers/sched/schedule.c
 --- minix_original/usr/src/minix/servers/sched/schedule.c	2014-09-13 23:56:50.000000000 +0200
-+++ minix_source/usr/src/minix/servers/sched/schedule.c	2022-05-30 13:14:41.409303017 +0200
++++ minix_source/usr/src/minix/servers/sched/schedule.c	2022-05-30 13:45:35.837638340 +0200
 @@ -19,23 +19,25 @@ static unsigned balance_timeout;
  
  #define BALANCE_TIMEOUT	5 /* how often to balance queues in seconds */
@@ -587,6 +588,19 @@ diff -rupNEZbB minix_original/usr/src/minix/servers/sched/schedule.c minix_sourc
  
  #define CPU_DEAD	-1
  
+@@ -99,9 +101,9 @@ int do_noquantum(message *m_ptr)
+ 	}
+ 
+ 	rmp = &schedproc[proc_nr_n];
+-	if (rmp->priority < MIN_USER_Q) {
+-		rmp->priority += 1; /* lower priority */
+-	}
++	// if (rmp->priority < MIN_USER_Q) {
++	// 	rmp->priority += 1; /* lower priority */
++	// }
+ 
+ 	if ((rv = schedule_process_local(rmp)) != OK) {
+ 		return rv;
 @@ -176,6 +178,7 @@ int do_start_scheduling(message *m_ptr)
  		   process scheduled, and the parent of itself. */
  		rmp->priority   = USER_Q;

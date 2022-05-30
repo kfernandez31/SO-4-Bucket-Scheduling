@@ -8,7 +8,7 @@ int main(void); /* so_2022 */
 void setreply(int proc_nr, int result);
 
 /* schedule.c */
-int do_noquantum(message *m_ptr);
+int do_noquantum(message *m_ptr); /* so_2022 */
 int do_start_scheduling(message *m_ptr); /* so_2022 */
 int do_stop_scheduling(message *m_ptr);
 int do_nice(message *m_ptr); /* so_2022 */
