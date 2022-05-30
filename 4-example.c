@@ -116,10 +116,10 @@ int main(void) {
   /* Podtest 1: proces A wykonuje wielokrotnie więcej pracy niż procesy B, C, D, E.
    * Wymagamy, aby proces A zakończył się jako ostatni.
    */
-  printf("Podtest 1: ");
-  fflush(stdout);
-  run_test(BASE_NUM_ITERS * 15, BASE_NUM_ITERS / 2, final_order);
-  printf(" => %s\n", (final_order[NUM_JOBS - 1] == 0) ? "OK" : "WRONG");
+  // printf("Podtest 1: ");
+  // fflush(stdout);
+  // run_test(BASE_NUM_ITERS * 15, BASE_NUM_ITERS / 2, final_order);
+  // printf(" => %s\n", (final_order[NUM_JOBS - 1] == 0) ? "OK" : "WRONG");
 
   /* Podtest 2: proces A wykonuje 1,5 razy więcej pracy niż procesy B, C, D, E.
    * Wymagamy, aby proces A zakończył się jako pierwszy.

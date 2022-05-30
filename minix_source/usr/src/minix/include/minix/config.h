@@ -60,6 +60,7 @@
  * priority) and increment.
  */
 #define INIT_BUCKET 0
+#define NO_BUCKET (-1)
 #define BUCKET_Q    8 
 #define LOWEST_BUCKET_Q (BUCKET_Q - 1)
 #define NR_BUCKETS  10
