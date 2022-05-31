@@ -549,7 +549,7 @@ diff -rupNEZbB minix_original/usr/src/minix/servers/sched/schedproc.h minix_sour
  	bitchunk_t cpu_mask[BITMAP_CHUNKS(CONFIG_MAX_CPUS)]; /* what CPUs is the
 diff -rupNEZbB minix_original/usr/src/minix/servers/sched/schedule.c minix_source/usr/src/minix/servers/sched/schedule.c
 --- minix_original/usr/src/minix/servers/sched/schedule.c	2014-09-13 23:56:50.000000000 +0200
-+++ minix_source/usr/src/minix/servers/sched/schedule.c	2022-05-30 13:45:35.837638340 +0200
++++ minix_source/usr/src/minix/servers/sched/schedule.c	2022-05-31 21:29:22.221980394 +0200
 @@ -19,23 +19,25 @@ static unsigned balance_timeout;
  
  #define BALANCE_TIMEOUT	5 /* how often to balance queues in seconds */
@@ -631,7 +631,7 @@ diff -rupNEZbB minix_original/usr/src/minix/servers/sched/schedule.c minix_sourc
  	/* Take over scheduling the process. The kernel reply message populates
  	 * the processes current priority and its time slice */
 -	if ((rv = sys_schedctl(0, rmp->endpoint, 0, 0, 0)) != OK) {
-+	if ((rv = sys_schedctl(0, rmp->endpoint, 0, 0, 0, -1)) != OK) { //TODO: dobrze?
++	if ((rv = sys_schedctl(0, rmp->endpoint, 0, 0, 0, -1)) != OK) {
  		printf("Sched: Error taking over scheduling for %d, kernel said %d\n",
  			rmp->endpoint, rv);
  		return rv;
