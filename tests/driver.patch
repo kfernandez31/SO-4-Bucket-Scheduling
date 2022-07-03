@@ -1,0 +1,82 @@
+diff -rupNEZbB orig_sources/usr/src/minix/drivers/examples/hello/hello.c modified_sources/usr/src/minix/drivers/examples/hello/hello.c
+--- orig_sources/usr/src/minix/drivers/examples/hello/hello.c	2022-06-07 00:36:10.366127078 +0200
++++ modified_sources/usr/src/minix/drivers/examples/hello/hello.c	2022-06-07 02:08:35.373187809 +0200
+@@ -1,10 +1,14 @@
+ #include <minix/drivers.h>
+ #include <minix/chardriver.h>
++#include <errno.h>
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <unistd.h>
+ #include <minix/ds.h>
+ #include "hello.h"
+ 
++#define NR_BUCKETS 10
++
+ /*
+  * Function prototypes for the hello driver.
+  */
+@@ -32,6 +36,20 @@ static struct chardriver hello_tab =
+  */
+ static int open_counter;
+ 
++int test_set_bucket(int bucket_nr) {
++	int prev_errno = errno;
++	int x = set_bucket(bucket_nr);
++	int y = errno;
++	
++	if (x != -1 || y != -EPERM) {
++		errno = prev_errno;
++		return 1;
++	}
++	
++	errno = prev_errno;
++	return 0;
++}
++
+ static int hello_open(devminor_t UNUSED(minor), int UNUSED(access),
+     endpoint_t UNUSED(user_endpt))
+ {
+@@ -52,7 +70,14 @@ static ssize_t hello_read(devminor_t UNU
+     u64_t dev_size;
+     char *ptr;
+     int ret;
+-    char *buf = HELLO_MESSAGE;
++    char *buf = OK_MESSAGE;
++    
++    for (int i = 0; i < NR_BUCKETS; i++) {
++		if (test_set_bucket(i)) {
++			buf = FAIL_MESSAGE;
++			break;
++		}
++	}
+ 
+     printf("hello_read()\n");
+ 
+diff -rupNEZbB orig_sources/usr/src/minix/drivers/examples/hello/hello.h modified_sources/usr/src/minix/drivers/examples/hello/hello.h
+--- orig_sources/usr/src/minix/drivers/examples/hello/hello.h	2022-06-07 00:36:10.370127076 +0200
++++ modified_sources/usr/src/minix/drivers/examples/hello/hello.h	2022-06-07 01:33:19.107669115 +0200
+@@ -1,7 +1,8 @@
+ #ifndef __HELLO_H
+ #define __HELLO_H
+ 
+-/** The Hello, World! message. */
+-#define HELLO_MESSAGE "Hello, World!\n"
++#define OK_MESSAGE    "Test passed\n"
++#define FAIL_MESSAGE  "Test failed\n"
++#define HELLO_MESSAGE "Hello world!\n"
+ 
+ #endif /* __HELLO_H */
+diff -rupNEZbB orig_sources/usr/src/minix/drivers/examples/hello/Makefile modified_sources/usr/src/minix/drivers/examples/hello/Makefile
+--- orig_sources/usr/src/minix/drivers/examples/hello/Makefile	2022-06-07 00:36:10.342127085 +0200
++++ modified_sources/usr/src/minix/drivers/examples/hello/Makefile	2022-06-07 00:45:57.958122360 +0200
+@@ -2,7 +2,7 @@
+ PROG=	hello
+ SRCS=	hello.c
+ 
+-DPADD+=	${LIBCHARDRIVER} ${LIBSYS}
+-LDADD+=	-lchardriver -lsys
++DPADD+=	${LIBCHARDRIVER} ${LIBSYS} ${LIBC}
++LDADD+=	-lchardriver -lsys -lc
+ 
+ .include <minix.service.mk>
