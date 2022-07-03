@@ -65,7 +65,7 @@ i dodatkowo w poniższych plikach nagłówkowych:
 - Jądro oraz serwery mogą wypisywać dane diagnostyczne za pomocą funkcji `printf`, co może być przydatne w celu debugowania łatki. Domyślnie dane są wypisywane w oknie terminala. W przypadku potrzeby wypisania większej ilości danych polecamy skorzystać z wirtualnego portu szeregowego. W tym celu należy uruchomić emulator `QEMU` z dodatkową opcją `-serial file:serial.txt`. Następnie przy starcie MINIX-a należy wybrać opcję `4` i zmodyfikować domyślną opcję `2` poprzez dopisanie dodatkowej flagi `cttyline=0`. W wyniku tych modyfikacji dane diagnostyczne jądra i serwerów MINIX-a będą wypisywane do pliku `serial.txt` w komputerze hosta.
 
 ## Ocena rozwiązania
-Poniżej przyjmujemy, że `ab123456` oznacza identyfikator studenta rozwiązującego zadanie. Należy przygotować łatkę (ang. *patch*) ze zmianami w sposób opisany w [treści zadania 3](https://github.com/kfernandez31/SO-3-LCA-PID/blob/main/README.md). Rozwiązanie w postaci łatki `ab123456.patch` należy umieścić w Moodle. Opcjonalnie można dołączyć plik `README`.
+Poniżej przyjmujemy, że `ab123456` oznacza identyfikator studenta rozwiązującego zadanie. Należy przygotować łatkę (ang. *patch*) ze zmianami w sposób opisany w [treści zadania 3](https://github.com/kfernandez31/SO-3-Process-LCA/blob/main/README.md#format-rozwi%C4%85zania). Rozwiązanie w postaci łatki `ab123456.patch` należy umieścić w Moodle. Opcjonalnie można dołączyć plik `README`.
 
 W celu skompilowania i uruchomienia systemu z nową wersją szeregowania wykonane będą następujące polecenia:
 ```
