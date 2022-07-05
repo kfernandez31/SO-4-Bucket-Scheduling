@@ -4,15 +4,15 @@ https://gitlab.com/mimuw-rocznik-2001/so-2022/testy-zad4
 # Official tests
 https://github.com/kfernandez31/SO-4-Bucket-Scheduling/tree/main/src/tests
 
-## Opis wyników i testów
+# Opis wyników i testów
 
-### Uruchamianie testów
+## Uruchamianie testów
 
 Należy wgrać łatkę i folder z testami na miniksa, zainstalować łatkę
 zgodnie z poleceniem z treści zadania, wykonać `make` i po kolei uruchomić
 wszystkie testy. Każdy z testów wypisuje na wyjście, czy zakończył się poprawnie.
 
-### Opis raportu
+## Opis raportu
 
 Raport zazwyczaj zawiera kilka liczb oddzielonych przecinkami, a następnie pewien ułamek postaci `x/5`.
 Oznacza to numery testów, które przeszły, a następnie liczbę podtestów z pliku `compare.c`, które przeszły.
