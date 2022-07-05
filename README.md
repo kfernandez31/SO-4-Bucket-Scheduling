@@ -4,7 +4,7 @@ What you see is a repository of my solution for task no. 4. of the [Operating Sy
 
 # Brief description
 
-The task was to alter the default scheduling strategy for userspace processes in the the operating system [Minix](https://github.com/Stichting-MINIX-Research-Foundation/minix/tree/R3.3.0). The new strategy assigned each process a "bucket" (that one could change with a new system call, which worked in a similar fashion to [`nice`](https://linux.die.net/man/1/nice)), which then the scheduler scanned circularly, always picking the first process of a non-empty bucket if one existed. 
+The task was to alter the default scheduling strategy for userspace processes in the the operating system [Minix](https://github.com/Stichting-MINIX-Research-Foundation/minix/tree/R3.3.0). The new strategy assigned each process a "bucket" (that one could change with a new system call, which worked in a similar fashion to [`nice`](https://man7.org/linux/man-pages/man2/nice.2.html)), which then the scheduler scanned circularly, always picking the first process of a non-empty bucket if one existed. 
 
 # Full description 
 
