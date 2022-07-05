@@ -2,8 +2,9 @@
 https://gitlab.com/mimuw-rocznik-2001/so-2022/testy-zad4
 
 # Official tests
-https://github.com/kfernandez31/SO-4-Bucket-Scheduling/tree/main/src/tests
+https://github.com/kfernandez31/SO-4-Bucket-Scheduling/tree/main/src/test
 
+---
 # Opis wyników i testów
 
 ## Uruchamianie testów
